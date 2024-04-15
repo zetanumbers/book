@@ -55,6 +55,31 @@ its end. The `impl_trait_in_assoc_type` feature is used there to not
 implement futures manually, perhaps this can be simplified further with
 return-position `impl Trait` and async methods in traits.
 
+### Choosing against `poll_drop`
+
+You may wonder about possible alternative design of async drop, usually
+named `poll_drop`:
+
+```rust,ignore
+#[lang = "async_drop"]
+pub trait AsyncDrop {
+    fn poll_drop(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<()>;
+}
+```
+
+We have decided against it since it would require to embed the state
+of asynchronous destruction into the type itself. For example `Vec<T>`
+would need to store an additional index to know which element is currently
+in the process of asynchronous destruction (unless we `poll_drop` every
+element on each parent call, but I imagine that could become expensive
+quick, and it is not exactly symmetrical to how the regular `Drop`
+functions). Also each element of the vector would require additional
+space for these embedded asynchronous destructors, even tho it would be
+utilized one at a time.
+
+However there is indeed one benefit of `poll_drop` which I hypothesized
+to be a supplemental interface [down below](#dyn_trait).
+
 ## Asynchronous drop glue
 
 To run async drop glue on a type we can use public `async_drop` or
@@ -269,7 +294,7 @@ reference the dropped object, perhaps it would be more beneficial to have
 would be less unsafe and we won't have to deal with pointers infecting
 async destructor types with `!Send` and `!Sync`.
 
-### Async drop glue for dyn Trait
+### Async drop glue for dyn Trait { #dyn_trait }
 
 The problem with dynamic types is basically about
 loosing the type information. We cannot know `<dyn Trait as
