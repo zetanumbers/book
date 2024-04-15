@@ -80,7 +80,7 @@ Most importantly in these two cases objects with the destruction
 guarantee would be bounded by lifetime arguments. So to define the
 destruction guarantee:
 
-```
+```text
 Destruction guarantee asserts that bounding lifetime of an object
 must end only after object is destroyed by drop or any other valid
 destructor. Somehow breaking this guarantee can lead to UB.
@@ -133,7 +133,7 @@ of a program's execution itself, so consider that analogous to calling
 
 One trivial implementation might have already crept into your mind.
 
-```rust
+```rust,ignore
 unsafe auto trait Leak {}
 ```
 
@@ -161,9 +161,9 @@ functionality:
  - Channel types like inside of `std::sync::mpsc` with a shared buffer of
  `T` are problematic since you can send a receiver through its sender back
  to itself, thus creating an ownership cycle leaking that shared buffer;
-  * Rendezvous channels seem to lack this flaw because they wait for
-  other thread/task to be ready to take a value instead of running off
-  right after sending it;
+   - Rendezvous channels seem to lack this flaw because they wait for
+   other thread/task to be ready to take a value instead of running off
+   right after sending it;
 
 In any case the library itself dictates appropriate bounds for its types.
 
@@ -182,7 +182,7 @@ change, since `!Leak` types would be a small minority in my vision.
 To make `!Leak` struct you would need to use new `Unleak` wrapper type:
 
 
-```rust
+```rust,ignore
 // Some usage of Unleak, probably move JoinGuard there
 
 // Unleak definition
@@ -214,7 +214,7 @@ if you invalidate safety invariant of a borrowed type, make sure
 this borrow is under `Unleak`.  To illustrate how `Unleak` helps
 you could look at this example:
 
-```rust
+```rust,ignore
 struct Variance<Contra, Co> {
     process: fn(Contra) -> String,
     // invalidate `Co` type's safety invariant before restoring it
@@ -233,7 +233,7 @@ to mark this function pointer with `Unleak`. If we just had
 `PhantomUnleak` there - this is what example above would look like
 instead:
 
-```rust
+```rust,ignore
 struct Variance<Contra, Co> {
     process: fn(Contra) -> String,
     queue: Co,
@@ -276,7 +276,7 @@ with an endless loop. However `?Leak` types implement `Leak` for static
 lifetimes transitively from `Unleak` to satisfy any function's
 bounds over types.
 
-```rust
+```rust,ignore
 // not sure about variance here
 struct JoinGuard<'a, T: 'a> {
     // ...
@@ -291,7 +291,7 @@ a value of this type into itself. In particular `JoinGuard` may be made
 creating a reference to itself, thus escaping from a parent thread while
 having live references to parent thread local variables.
 
-```rust
+```rust,ignore
 // not sure about variance here
 struct JoinGuard<'a, T: 'a> {
     // ...
@@ -337,7 +337,7 @@ Consider one other example from
 
 <div id="internal_unleak_future">
 
-```rust
+```rust,ignore
 fn _internal_unleak_future() -> impl std::future::Future<Output = ()> + Leak {
     async {
         let num = std::hint::black_box(0);
@@ -356,7 +356,7 @@ unless they refer to something outside of it. This is an example of sound
 and safe lifetime extension thus making the whole future `Leak`. However,
 if when we use `JoinGuard` it becomes a little bit trickier:
 
-```rust
+```rust,ignore
 fn _internal_join_guard_future() -> impl std::future::Future<Output = ()> + Leak {
     async {
         let local = 42;
@@ -400,7 +400,7 @@ If you think about `Rc` long enough, the `T: Leak` bound will start to
 feel unnecessary strong. Maybe we could add a trait that signify that your
 type can never own `Rc` of self, which would allow us to have a new bound:
 
-```rust
+```rust,ignore
 impl<T> Rc<T> {
     fn new(v: T) -> Self
     where
@@ -414,7 +414,7 @@ impl<T> Rc<T> {
 By analogy with that to make sure closure that you pass into a spawned
 thread should never capture anything that can give you join guard:
 
-```rust
+```rust,ignore
 pub fn scoped<F>(f: F) -> JoinGuard<F>
 where
     F: NeverGives<JoinGuard<F>>
@@ -425,7 +425,7 @@ where
 
 To help you with understanding:
 
-```
+```text
 <fn(T)>: NeverGives<T> + Disowns<T>,
 <fn() -> T>: !NeverGives<T> + Disowns<T>,
 T: !NeverGives<T> + !Disowns<T>,
@@ -437,7 +437,7 @@ trait NeverGives<T>: Disowns<T>,
 Or, to generalize, maybe there should be a custom automatic trait for Rc, so
 that anything that implements it is safely allowed to be held within `Rc`:
 
-```rust
+```rust,ignore
 impl<T> Rc<T> {
     fn new(v: T) -> Self
     where
@@ -610,7 +610,7 @@ mod foo {
 
 Output:
 
-```
+```text
 Foo::cleanup
 a = 420
 ```

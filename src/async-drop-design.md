@@ -10,7 +10,7 @@ I've tried to make interface of asynchronous drops as similar to the
 synchronous drops as possible. Take a look at the definition of the most
 important public trait of my prototype (`AsyncDrop` trait):
 
-```rust
+```rust,ignore
 /// Custom code within the asynchronous destructor.
 #[lang = "async_drop"]
 pub trait AsyncDrop {
@@ -36,7 +36,7 @@ or detrimental.
 Let's imagine its implementation for a new, cancellable during drop task
 handle in tokio:
 
-```rust
+```rust,ignore
 impl<T> AsyncDrop for CancellableJoinHandle<T> {
     type Dropper<'a>: impl Future<Output = ()>;
 
@@ -61,7 +61,7 @@ To run async drop glue on a type we can use public `async_drop` or
 `async_drop_in_place` functions, just as with the regular variant of drop.
 These are the async implementations:
 
-```rust
+```rust,ignore
 pub async fn async_drop<T>(to_drop: T) {
     let to_drop = MaybeUninit::new(to_drop);
     // SAFETY: we store the object within the `to_drop` variable
@@ -83,7 +83,7 @@ presumably a future. You can also notice we don't have syntax `T:
 AsyncDestruct`. Let's take a closer look of `AsyncDestruct` trait and
 its associated type:
 
-```rust
+```rust,ignore
 #[lang = "async_destruct"]
 trait AsyncDestruct {
     type AsyncDestructor: Future<Output = ()>;
@@ -109,7 +109,7 @@ types. Although some code couldn't have been offloaded to the `core`
 (I think). For example I've had to precompute a pointer to each field
 ahead of time inside of the `async_drop` method.
 
-```rust
+```rust,ignore
 #[lang = "async_drop_chain"]
 async fn chain<F, G>(first: F, second: G)
 where
@@ -210,7 +210,7 @@ the compiler within the [compiler/rustc_mir_transform/src/shim.rs].
 code in form of MIR. Let's take a look at what kind of code is being
 generated for enum:
 
-```rust
+```rust,ignore
 chain(
     surface_async_drop_in_place(to_drop),
     either(
@@ -282,7 +282,7 @@ coerce static types into dynamic, perhaps we could have a wrapper
 type which contains space both for `T` and for `<AsyncDestruct as
 T>::AsyncDestructor`?
 
-```rust
+```rust,ignore
 #[lang = "PollDestruct"]
 trait PollDestruct {
     fn poll_drop(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<()>;
