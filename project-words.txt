@@ -16,11 +16,13 @@ impls
 jthread
 monomorphization
 mpsc
+noplayground
 petrochenkov
 precompute
 println
 repr
 rustc
+rustdoc
 struct
 subtyping
 thrd
