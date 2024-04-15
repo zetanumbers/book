@@ -1,0 +1,6 @@
+[book]
+authors = ["Daria Sukhonina"]
+language = "en"
+multilingual = false
+src = "src"
+title = "zetanumbers book"
