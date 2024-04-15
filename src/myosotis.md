@@ -133,8 +133,8 @@ of a program's execution itself, so consider that analogous to calling
 
 One trivial implementation might have already crept into your mind.
 
-```rust,ignore
-unsafe auto trait Leak {}
+```rust,noplayground
+{{#rustdoc_include myosotis.rs:leak_trait}}
 ```
 
 This is an automatic trait, which would mean that it is
@@ -183,27 +183,7 @@ To make `!Leak` struct you would need to use new `Unleak` wrapper type:
 
 
 ```rust,ignore
-// Some usage of Unleak, probably move JoinGuard there
-
-// Unleak definition
-
-#[repr(transparent)]
-#[derive(Default, Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub struct Unleak<T>(pub T, PhantomUnleak);
-
-impl<T> Unleak<T> {
-    pub const fn new(v: T) -> Self {
-        Unleak(v, PhantomUnleak)
-    }
-}
-
-// This is the essential part of the `Unleak` design.
-unsafe impl<T: 'static> Leak for Unleak<T> {}
-
-#[derive(Default, Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
-struct PhantomUnleak;
-
-impl !Leak for PhantomUnleak {}
+{{#include myosotis.rs:unleak}}
 ```
 
 This wrapper makes it easy to define `!Leak` data structures. It
@@ -215,12 +195,7 @@ this borrow is under `Unleak`.  To illustrate how `Unleak` helps
 you could look at this example:
 
 ```rust,ignore
-struct Variance<Contra, Co> {
-    process: fn(Contra) -> String,
-    // invalidate `Co` type's safety invariant before restoring it
-    // inside of the drop
-    queue: Unleak<Co>,
-}
+{{#include myosotis.rs:variance}}
 ```
 
 If you aware of
@@ -234,13 +209,7 @@ to mark this function pointer with `Unleak`. If we just had
 instead:
 
 ```rust,ignore
-struct Variance<Contra, Co> {
-    process: fn(Contra) -> String,
-    queue: Co,
-    _unleak: PhantomUnleak,
-}
-
-unsafe impl<Contra, Co: 'static> Leak for Variance<Contra, Co> {}
+{{#include myosotis.rs:variance_alt}}
 ```
 
 It now requires unsafe impl with a bit unclear type bounds. If user
@@ -292,16 +261,7 @@ creating a reference to itself, thus escaping from a parent thread while
 having live references to parent thread local variables.
 
 ```rust,ignore
-// not sure about variance here
-struct JoinGuard<'a, T: 'a> {
-    // ...
-    _marker: PhantomData<fn() -> T>,
-    _unleak: PhantomData<Unleak<&'a ()>>,
-    _unsend: PhantomData<*mut ()>,
-}
-
-unsafe impl<'static, T: 'static> Send for JoinGuard<'static, T> where Self: Leak {}
-unsafe impl<'a, T> Sync for JoinGuard<'a, T> {}
+{{#include myosotis.rs:join_guard}}
 ```
 
 There is also a way to forbid `JoinGuard` from moving into its
