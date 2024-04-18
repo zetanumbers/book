@@ -1,4 +1,4 @@
 # Summary
 
-- [Myosotis](./myosotis.md)
+- [Unforgettable types](./myosotis.md)
 - [Async drop design explainer](./async-drop-design.md)
