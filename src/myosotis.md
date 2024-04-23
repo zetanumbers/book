@@ -5,64 +5,55 @@
 
 ## Background
 
-Currently there is a consensus about absence of
-the <dfn id="intro-drop_guarantee"> [drop guarantee](#term-drop_guarantee) </dfn>. To
-be precise, in today's Rust you can forget some value via
-[`core::mem::forget`](https://doc.rust-lang.org/1.75.0/core/mem/fn.forget.html)
+Currently there is a consensus about absence of the <dfn
+id="intro-drop_guarantee">[drop guarantee]</dfn>. To be precise,
+in today's Rust you can forget some value via [`core::mem::forget`]
 or via some other safe contraption like cyclic shared references `Rc/Arc`.
 
-As you may know in the early days of Rust the
-destruction guarantee was intended to exist. Instead of today's
-[`std::thread::scope`](https://doc.rust-lang.org/1.75.0/std/thread/fn.scope.html)
-there was
-[`std::thread::scoped`](https://doc.rust-lang.org/1.0.0/std/thread/fn.scoped.html)
-which worked in a similar manner, except it used a guard value
-with a drop implementation to join the spawned thread so that it
-wouldn't refer to any local stack variable after the parent thread
-exited the scope and destroyed them, but due to absence of the drop
-guarantee it was found to be unsound and was removed from standard
-library.<sup id="cite_ref-1">[\[1\]](#cite_note-1)</sup> Let's
-name these two approaches as <dfn id="intro-guarded_closure">
-[guarded closure](#term-guarded_closure)
-</dfn> and <dfn id="intro-guard_object"> [guard
-object](#term-guard_object) </dfn>. Also to note C++20 has analogous
-[`std::jthread`](https://en.cppreference.com/w/cpp/thread/jthread)
-guard object.
+As you may know in the early days of Rust the destruction guarantee was
+intended to exist. Instead of today's [`std::thread::scope`] there was
+[`std::thread::scoped`] which worked in a similar manner, except it
+used a guard value with a drop implementation to join the spawned thread
+so that it wouldn't refer to any local stack variable after the parent
+thread exited the scope and destroyed them, but due to absence of the
+drop guarantee it was found to be unsound and was removed from standard
+library.<sup id="cite_ref-1">[\[1\]](#cite_note-1)</sup> Let's name these
+two approaches as <dfn id="intro-guarded_closure">[guarded closure]</dfn>
+and <dfn id="intro-guard_object">[guard object]</dfn>. Also to note
+C++20 has analogous [`std::jthread`] guard object.
 
 There is also a discussion among Rust theorists about <dfn
-id="intro-linear_type"> [linear types](#term-linear_type) </dfn>
-which leads them researching (or maybe revisiting) the possible `Leak`
-trait. I've noticed some confusion and thus hesitation when people are
-trying to define what does leaking a value mean. I will try to clarify
-and define what does leak actually mean.
+id="intro-linear_type">[linear types]/dfn> which leads them researching
+(or maybe revisiting) the possible `Leak` trait. I've noticed some
+confusion and thus hesitation when people are trying to define what does
+leaking a value mean. I will try to clarify and define what does leak
+actually mean.
 
 ## Problem
 
-There is a class of problems that we will try to solve. In particular,
-we return some object from a function or a method that mutably
-(exclusively) borrows one of function arguments. While returned object
-is alive we could not refer to borrowed value, which can be a useful
-property to exploit. You can invalidate some invariant of a borrowed
-type but then you restore it inside of returned object's drop. This
-is a fine concept until you realize in some circumstances drop is not
-called, which would in turn mean that the borrowed type invariant
-invalidation may never cause <dfn id="intro-undefined_behavior">
-[undefined behavior](#term-undefined_behavior) </dfn> (UB in
-short) if left untreated. However, if drop is guaranteed, we could
-mess with borrowed type invariant, knowing that the cleanup will
-restore the invariant and make impossible to cause UB after. I
-found one example of this as once mentioned planned feature
+There is a class of problems that we will try to solve. In particular, we
+return some object from a function or a method that mutably (exclusively)
+borrows one of function arguments. While returned object is alive we
+could not refer to borrowed value, which can be a useful property to
+exploit. You can invalidate some invariant of a borrowed type but then
+you restore it inside of returned object's drop. This is a fine concept
+until you realize in some circumstances drop is not called, which would
+in turn mean that the borrowed type invariant invalidation may never
+cause <dfn id="intro-undefined_behavior">[undefined behavior]</dfn>
+(UB in short) if left untreated. However, if drop is guaranteed,
+we could mess with borrowed type invariant, knowing that the
+cleanup will restore the invariant and make impossible to cause UB
+after. I found one example of this as once mentioned planned feature
 [`Vec::drain_range`](https://github.com/rust-lang/rust/issues/24292#issuecomment-93513451).
 
 One other special case would be owned scoped thread. It may be included
-within class of problems mentioned, but I am not sure. Anyway, in the most
-trivial case this is the same as once deleted `std::thread::{scoped,
-JoinGuard}` described above. However, many C APIs may in some
-sense use this via the <dfn id="intro-callback_registration">
-[callback registration](#term-callback_registration) </dfn>
-pattern, most common for multithreaded client handles. Absence
-of a drop guarantee thus implies `'static` lifetime for a
-callback so that the user wouldn't use invalidated references
+within class of problems mentioned, but I am not sure. Anyway, in the
+most trivial case this is the same as once deleted `std::thread::{scoped,
+JoinGuard}` described above. However, many C APIs may in some sense
+use this via the <dfn id="intro-callback_registration">[callback
+registration]</dfn> pattern, most common for multithreaded client
+handles. Absence of a drop guarantee thus implies `'static` lifetime
+for a callback so that the user wouldn't use invalidated references
 inside of the callback, if client uses guard object API pattern ([see
 example](https://docs.rs/tigerbeetle-unofficial-core/0.3.0+0.13.133/tigerbeetle_unofficial_core/struct.Client.html#method.with_callback)).
 
@@ -106,7 +97,7 @@ any execution time.** My further advice would be in general to **think
 not in terms of execution time but in terms of semantic lifetimes**,
 which role would be to conservatively establish order of events if
 those ever exist. Alternatively you will be fundamentally limited by the
-[halting problem](https://en.wikipedia.org/wiki/Halting_problem).
+[halting problem].
 
 On the topic of abort or exit, it shouldn't be considered an end to any lifetime,
 since otherwise abort and even spontaneous termination of a program like
@@ -116,11 +107,10 @@ To move forward let's determine required conditions for destruction
 guarantee. Rust language already makes sure you could never use a
 value which bounding lifetime has ended. Drop as a fallback to other
 destructors is only ever run on owned values, so for a drop to run
-on a value, **the value should preserve transitive ownership of it
-by functions' stack/local values**. If you familiar with [tracing garbage
-collection](https://en.wikipedia.org/wiki/Garbage_collection_(computer_science)#Tracing)
-this is similar to it, so that the required alive value should be
-traceable from function stack. The value has to not own itself or be
+on a value, **the value should preserve transitive ownership of it by
+functions' stack/local values**. If you familiar with [tracing garbage
+collection] this is similar to it, so that the required alive value should
+be traceable from function stack. The value has to not own itself or be
 owned by something that would own itself, at least before the end of its
 bounding lifetime, otherwise drop would not be called. Last statement
 could be simplified, given that **owner of a value transitively must also
@@ -199,15 +189,12 @@ you could look at this example:
 {{#include myosotis.rs:variance}}
 ```
 
-If you aware of
-[variance](https://doc.rust-lang.org/reference/subtyping.html) then
-you should know that contravariant lifetimes (which are placed
-inside of arguments of a function pointer) can be extended via
-subtyping up to the `'static` lifetime, it is also applied to
-lifetime bounds of generic type arguments. So it should be useless
-to mark this function pointer with `Unleak`. If we just had
-`PhantomUnleak` there - this is what example above would look like
-instead:
+If you aware of [variance] then you should know that contravariant
+lifetimes (which are placed inside of arguments of a function pointer) can
+be extended via subtyping up to the `'static` lifetime, it is also applied
+to lifetime bounds of generic type arguments. So it should be useless to
+mark this function pointer with `Unleak`. If we just had `PhantomUnleak`
+there - this is what example above would look like instead:
 
 ```rust,ignore
 {{#include myosotis.rs:variance_alt}}
@@ -265,20 +252,17 @@ having live references to parent thread local variables.
 {{#include myosotis.rs:join_guard}}
 ```
 
-There is also a way to forbid `JoinGuard` from moving into its
-thread if we bound it by a different lifetime which is shorter than
-input closure's lifetime. See prototyped `thread::SendJoinGuard`
-in leak-playground
+There is also a way to forbid `JoinGuard` from moving into its thread if
+we bound it by a different lifetime which is shorter than input closure's
+lifetime. See prototyped `thread::SendJoinGuard` in leak-playground
 [docs](https://zetanumbers.github.io/leak-playground/leak_playground_std/)
 and [repo](https://github.com/zetanumbers/leak-playground). Because
 there's no `Leak` trait outside of this repo and external libraries
-cannot account for it, `!Leak` types usage safety is enforced
-manually sometimes. There're also some new possible features for
-tokio in
-[leak_playground_tokio](https://zetanumbers.github.io/leak-playground/leak_playground_tokio/)
-like non-static task support. The doctest code behaves as intended
-(except for internally unleak future examples), but I have no formal
-proof of it being 100% valid.
+cannot account for it, `!Leak` types usage safety is enforced manually
+sometimes. There're also some new possible features for tokio in
+[leak_playground_tokio] like non-static task support. The doctest code
+behaves as intended (except for internally unleak future examples),
+but I have no formal proof of it being 100% valid.
 
 One other consequence would be that if a drop of a `!Leak` object panics
 it should be safe to use the *referred to* object, basically meaning that
@@ -293,8 +277,7 @@ applies to any other destructor.
 
 #### Internally Unleak coroutines
 
-Consider one other example from
-[leak-playground](https://zetanumbers.github.io/leak-playground/leak_playground/):
+Consider one other example from [leak-playground]:
 
 <div id="internal_unleak_future">
 
@@ -335,19 +318,17 @@ fn _internal_join_guard_future() -> impl std::future::Future<Output = ()> + Leak
 ```
 
 Code above may lead to use-after-free if we `forget` this future,
-meaning that memory holding this future is deallocated without
-cancelling (i.e. dropping) this future first, thus spawned `thrd`
-now refers to the future's deallocated local state, since we haven't
-joined this thread.  But remember that self-referential (`!Unpin`)
-future is pinned forever after it starts, which means that it is
-guaranteed there is no way (or at least should be no way) to forget
-and deallocate the underlying value in safe code (see pin's [drop
-guarantee](https://doc.rust-lang.org/std/pin/index.html#drop-guarantee)).
-However outside of rust-lang project some people would not follow this
-rule because they don't know about it or maybe discard it purposefully
-(the *Rust police* is coming for you). Maybe in the future it would be
-possible to somehow relax this rule in some cases, but it would be a
-different problem.
+meaning that memory holding this future is deallocated without cancelling
+(i.e. dropping) this future first, thus spawned `thrd` now refers to the
+future's deallocated local state, since we haven't joined this thread.
+But remember that self-referential (`!Unpin`) future is pinned forever
+after it starts, which means that it is guaranteed there is no way
+(or at least should be no way) to forget and deallocate the underlying
+value in safe code (see [pin's drop guarantee]).  However outside of
+rust-lang project some people would not follow this rule because they
+don't know about it or maybe discard it purposefully (the *Rust police*
+is coming for you). Maybe in the future it would be possible to somehow
+relax this rule in some cases, but it would be a different problem.
 
 ## Extensions and alternatives
 
@@ -420,13 +401,12 @@ impl<T> Arc<T> {
 
 ### Ranked Leak trait
 
-While we may allow `T: Leak` types to be held within `Rc`, `U:
-Leak2` would be not given that `Rc<T>: Leak2`. And so on. This
-allows us to forbid recursive types but also forbids nested enough
-within `Rc`s data types. This is similar to [von Neumann hierarchy
-of sets](https://en.wikipedia.org/wiki/Von_Neumann_universe) as sets
-there have some rank ordinal. Maybe there could be `unsafe auto trait
-Leak<const N: usize> {}` for that?
+While we may allow `T: Leak` types to be held within `Rc`, `U: Leak2`
+would be not given that `Rc<T>: Leak2`. And so on. This allows us to
+forbid recursive types but also forbids nested enough within `Rc`s data
+types. This is similar to [von Neumann hierarchy of sets] as sets there
+have some rank ordinal. Maybe there could be `unsafe auto trait Leak<const
+N: usize> {}` for that?
 
 ### Turning drop invocations into compiler errors
 
@@ -449,11 +429,11 @@ not sure if anyone relies upon this, so we could use abort instead. Or
 instead we can add `std::mem::is_leak::<T>() -> bool` to determine if
 we can forget values or not and then act accordingly.
 
-Currently [internally unleak futures](#internal_unleak_future)
-examples emit errors where they shouldn't or should emit different errors,
-so I guess some compiler hacking is required. There could also be some
-niche compilation case, where compiler assumes every type is `Leak`
-and purposefully forgets a value.
+Currently [internally unleak futures] examples emit errors where they
+shouldn't or should emit different errors, so I guess some compiler
+hacking is required. There could also be some niche compilation case,
+where compiler assumes every type is `Leak` and purposefully forgets
+a value.
 
 <!--
 
@@ -492,8 +472,8 @@ Guarantee that drop is run on every created value unless value's drop
 is a noop.
 
 This text uses this term only in reference to older discussions. I use
-[destruction guarantee](#term-destruction_guarantee) instead to be more
-precise and to avoid confusion in future discussions about async drop.
+[destruction guarantee] instead to be more precise and to avoid confusion
+in future discussions about async drop.
 
 </dd>
 
@@ -597,11 +577,10 @@ backwards-compatible set of rules.
 
 <dd>
 
-A pattern of library APIs, especially in
-C. It is usually represented as setting some
-function as a callback to incoming response for some client handle.
-[tigerbeetle_unofficial_core::Client](https://docs.rs/tigerbeetle-unofficial-core/0.3.0+0.13.133/tigerbeetle_unofficial_core/struct.Client.html)
-would be an example of that.
+A pattern of library APIs, especially in C. It is usually represented
+as setting some function as a callback to incoming response for some
+client handle. [tigerbeetle_unofficial_core::Client] would be an example
+of that.
 
 </dd>
 
@@ -627,3 +606,24 @@ me.](https://en.wikipedia.org/wiki/Undefined_behavior)
 ## Credits
 
 Thanks to @petrochenkov for reviewing and discussing this proposal with me.
+
+[drop guarantee]: #term-drop_guarantee
+[`core::mem::forget`]: https://doc.rust-lang.org/1.75.0/core/mem/fn.forget.html
+[`std::thread::scope`]: https://doc.rust-lang.org/1.75.0/std/thread/fn.scope.html
+[`std::thread::scoped`]: https://doc.rust-lang.org/1.0.0/std/thread/fn.scoped.html
+[`std::jthread`]: https://en.cppreference.com/w/cpp/thread/jthread
+[linear types]: #term-linear_type
+[undefined behavior]: #term-undefined_behavior
+[guard object]: #term-guard_object
+[guarded closure]: #term-guarded_closure
+[callback registration]: #term-callback_registration
+[halting problem]: https://en.wikipedia.org/wiki/Halting_problem
+[tracing garbage collection]: https://en.wikipedia.org/wiki/Garbage_collection_(computer_science)#Tracing
+[variance]: https://doc.rust-lang.org/reference/subtyping.html
+[leak_playground_tokio]: https://zetanumbers.github.io/leak-playground/leak_playground_tokio/
+[leak-playground]: https://zetanumbers.github.io/leak-playground/leak_playground/
+[pin's drop guarantee]: https://doc.rust-lang.org/std/pin/index.html#drop-guarantee
+[destruction guarantee]: #term-destruction_guarantee
+[tigerbeetle_unofficial_core::Client]: https://docs.rs/tigerbeetle-unofficial-core/0.3.0+0.13.133/tigerbeetle_unofficial_core/struct.Client.html
+[internally unleak futures]: #internal_unleak_future
+[von Neumann hierarchy of sets]: https://en.wikipedia.org/wiki/Von_Neumann_universe
