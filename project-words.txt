@@ -6,7 +6,6 @@ Wuyts
 Yoshua
 arvensis
 combinators
-deallocate
 deallocated
 deinitializing
 desugared
@@ -15,15 +14,12 @@ exceeds
 impls
 jthread
 monomorphization
-mpsc
 noplayground
 petrochenkov
 precompute
-println
 repr
 rustc
 rustdoc
-struct
 subtyping
 thrd
 tigerbeetle
@@ -31,4 +27,3 @@ unergonomic
 unleak
 unsend
 unsize
-usize
