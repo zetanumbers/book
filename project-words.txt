@@ -3,6 +3,7 @@ Tauno
 Wuyts
 Yoshua
 arvensis
+bidi
 combinators
 deallocated
 deinitializing

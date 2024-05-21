@@ -1,5 +1,5 @@
 <style>
-    .referentiable *:target {
+    .referenceable *:target {
         background-color: var(--quote-bg) !important;
     }
 
@@ -469,7 +469,7 @@ I cannot describe this
 
 ## Terminology
 
-<dl class="referentiable">
+<dl class="referenceable">
 
 <div id="term-linear_type">
 <dt> <a href="#intro-linear_type" title="Jump up">^</a> Linear type </dt>
@@ -625,7 +625,7 @@ me.](https://en.wikipedia.org/wiki/Undefined_behavior)
 
 ## References
 
-<div class="referentiable">
+<div class="referenceable">
 
 1. <span id="cite_note-1"><a href="#cite_ref-1" title="Jump up">^</a> [rust-lang/rust github issue #24292 - std::thread::JoinGuard (and scoped) are unsound because of reference cycles](https://github.com/rust-lang/rust/issues/24292)</span>
 
@@ -637,7 +637,7 @@ me.](https://en.wikipedia.org/wiki/Undefined_behavior)
 
 ## Postscript
 
-<div class="referentiable">
+<div class="referenceable">
 
 1. <span id="postscript_note-1"><a href="#postscript_ref-1" title="Jump up">^</a>
 It is safe to forget an unforgettable type as long as it can outlive,
@@ -645,7 +645,7 @@ broadly speaking, any usage of the type's instance. That usage may be
 thread manager running thread's closure for a bit, which is where that
 `'static` lifetime comes from. Or another example would be to forget
 guard object as long as guarded object is forgotten too. I have modified
-[leak_playground_std]'s `Unleak` to accomodate this feature.
+[leak_playground_std]'s `Unleak` to accommodate this feature.
 <!-- FIXME: Add a reference to the complete unforgettable types proposal when it's out -->
 </span>
 
@@ -660,7 +660,7 @@ I am now convinced there is at least a family of auto traits that to
 determine whether some coroutine implements this trait should ignore its
 local state even if it passes await/yield point, thus I consider this
 questionable argument about lifetimes inside of coroutines transforming
-into `'static` to be obsolete. I'll give an explanation of this perculiar
+into `'static` to be obsolete. I'll give an explanation of this peculiar
 feature in one of my next posts.
 <!-- FIXME: Add a reference to the "threads are coroutines" post when it's out -->
 </span>
