@@ -1,3 +1,9 @@
+<style>
+    .referentiable *:target {
+        background-color: var(--quote-bg) !important;
+    }
+</style>
+
 # The destruction guarantee and linear types formulation
 #### Myosotis
 
@@ -451,9 +457,10 @@ I cannot describe this
 
 ## Terminology
 
-<dl>
+<dl class="referentiable">
 
-<dt id="term-linear_type"> <a href="#intro-linear_type" title="Jump up">^</a> Linear type </dt>
+<div id="term-linear_type">
+<dt> <a href="#intro-linear_type" title="Jump up">^</a> Linear type </dt>
 
 <dd>
 
@@ -461,10 +468,10 @@ Value of which should be used at least once, generally speaking. Use is
 usually defined within the context.
 
 </dd>
+</div>
 
-<dl>
-
-<dt id="term-drop_guarantee"> <a href="#intro-drop_guarantee" title="Jump up">^</a> Drop guarantee </dt>
+<div id="term-drop_guarantee">
+<dt> <a href="#intro-drop_guarantee" title="Jump up">^</a> Drop guarantee </dt>
 
 <dd>
 
@@ -476,8 +483,10 @@ This text uses this term only in reference to older discussions. I use
 in future discussions about async drop.
 
 </dd>
+</div>
 
-<dt id="term-guarded_closure"> <a href="#intro-guarded_closure" title="Jump up">^</a> Guarded closure </dt>
+<div id="term-guarded_closure">
+<dt> <a href="#intro-guarded_closure" title="Jump up">^</a> Guarded closure </dt>
 
 <dd>
 
@@ -557,8 +566,10 @@ a = 420
 ```
 
 </dd>
+</div>
 
-<dt id="term-guard_object"> <a href="#intro-guard_object" title="Jump up">^</a> Guard object </dt>
+<div id="term-guard_object">
+<dt> <a href="#intro-guard_object" title="Jump up">^</a> Guard object </dt>
 
 <dd>
 
@@ -572,8 +583,10 @@ However this proposal aims to relax this restriction, given a new
 backwards-compatible set of rules.
 
 </dd>
+</div>
 
-<dt id="term-callback_registration"> <a href="#intro-callback_registration" title="Jump up">^</a> Callback registration </dt>
+<div id="term-callback_registration">
+<dt> <a href="#intro-callback_registration" title="Jump up">^</a> Callback registration </dt>
 
 <dd>
 
@@ -583,8 +596,10 @@ client handle. [tigerbeetle_unofficial_core::Client] would be an example
 of that.
 
 </dd>
+</div>
 
-<dt id="term-undefined_behavior"> <a href="#intro-undefined_behavior" title="Jump up">^</a> Undefined behavior or UB </dt>
+<div id="term-undefined_behavior">
+<dt> <a href="#intro-undefined_behavior" title="Jump up">^</a> Undefined behavior or UB </dt>
 
 <dd>
 
@@ -592,16 +607,23 @@ of that.
 me.](https://en.wikipedia.org/wiki/Undefined_behavior)
 
 </dd>
+</div>
 
 </dl>
 
 ## References
 
-1. <a href="#cite_ref-1" id="cite_note-1" title="Jump up">^</a> [rust-lang/rust github issue #24292 - std::thread::JoinGuard (and scoped) are unsound because of reference cycles](https://github.com/rust-lang/rust/issues/24292)
+<div class="referentiable">
 
-2. <a href="#cite_ref-2" id="cite_note-2" title="Jump up">^</a> [Yoshua Wuyts - Linear Types One-Pager # Updates](https://blog.yoshuawuyts.com/linear-types-one-pager/#updates)
+1. <span id="cite_note-1"><a href="#cite_ref-1" title="Jump up">^</a> [rust-lang/rust github issue #24292 - std::thread::JoinGuard (and scoped) are unsound because of reference cycles](https://github.com/rust-lang/rust/issues/24292)</span>
 
-3. <a href="#cite_ref-3" id="cite_note-3" title="Jump up">^</a> [unstable book - auto-traits](https://doc.rust-lang.org/beta/unstable-book/language-features/auto-traits.html)
+2. <span id="cite_note-2"><a href="#cite_ref-2" title="Jump up">^</a> [Yoshua Wuyts - Linear Types One-Pager # Updates](https://blog.yoshuawuyts.com/linear-types-one-pager/#updates)</span>
+
+3. <span id="cite_note-3"><a href="#cite_ref-3" title="Jump up">^</a> [unstable book - auto-traits](https://doc.rust-lang.org/beta/unstable-book/language-features/auto-traits.html)</span>
+
+</div>
+
+
 
 ## Credits
 
