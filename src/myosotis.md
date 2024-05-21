@@ -292,7 +292,7 @@ applies to any other destructor.
 
 #### Internally Unleak coroutines
 
-Consider one other example from [leak-playground]:
+Consider one other example from [leak_playground_std]:
 
 <div id="internal_unleak_future">
 
@@ -652,7 +652,7 @@ Thanks to @petrochenkov for reviewing and discussing this proposal with me.
 [tracing garbage collection]: https://en.wikipedia.org/wiki/Garbage_collection_(computer_science)#Tracing
 [variance]: https://doc.rust-lang.org/reference/subtyping.html
 [leak_playground_tokio]: https://zetanumbers.github.io/leak-playground/leak_playground_tokio/
-[leak-playground]: https://zetanumbers.github.io/leak-playground/leak_playground/
+[leak_playground_std]: https://zetanumbers.github.io/leak-playground/leak_playground_std/
 [pin's drop guarantee]: https://doc.rust-lang.org/std/pin/index.html#drop-guarantee
 [destruction guarantee]: #term-destruction_guarantee
 [tigerbeetle_unofficial_core::Client]: https://docs.rs/tigerbeetle-unofficial-core/0.3.0+0.13.133/tigerbeetle_unofficial_core/struct.Client.html
