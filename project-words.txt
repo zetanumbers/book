@@ -1,7 +1,5 @@
 Neumann
 Tauno
-Uninit
-Unleak
 Wuyts
 Yoshua
 arvensis
@@ -10,13 +8,11 @@ deallocated
 deinitializing
 desugared
 doctest
-exceeds
 impls
 jthread
 monomorphization
 noplayground
 petrochenkov
-precompute
 repr
 rustc
 rustdoc
@@ -24,6 +20,7 @@ subtyping
 thrd
 tigerbeetle
 unergonomic
+uninit
 unleak
 unsend
 unsize
