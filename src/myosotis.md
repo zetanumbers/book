@@ -29,7 +29,7 @@ and <dfn id="intro-guard_object">[guard object]</dfn>. Also to note
 C++20 has analogous [`std::jthread`] guard object.
 
 There is also a discussion among Rust theorists about <dfn
-id="intro-linear_type">[linear types]/dfn> which leads them researching
+id="intro-linear_type">[linear types]</dfn> which leads them researching
 (or maybe revisiting) the possible `Leak` trait. I've noticed some
 confusion and thus hesitation when people are trying to define what does
 leaking a value mean. I will try to clarify and define what does leak
