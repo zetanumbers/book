@@ -69,7 +69,8 @@ use this via the <dfn id="intro-callback_registration">[callback
 registration]</dfn> pattern, most common for multithreaded client
 handles. Absence of a drop guarantee thus implies `'static` lifetime
 for a callback so that the user wouldn't use invalidated references
-inside of the callback, if client uses guard object API pattern ([see
+inside of the callback, if client uses guard object API pattern<sup
+id="postscript_ref-1">[P.S.](#postscript_note-1)</sup> ([see
 example](https://docs.rs/tigerbeetle-unofficial-core/0.3.0+0.13.133/tigerbeetle_unofficial_core/struct.Client.html#method.with_callback)).
 
 ## Solution
@@ -143,14 +144,14 @@ One trivial implementation might have already crept into your mind.
 {{#rustdoc_include myosotis.rs:leak_trait}}
 ```
 
-This is an automatic trait, which would mean that it is
-implemented for types in a similar manner to `Send`.<sup
-id="cite_ref-3">[\[3\]](#cite_note-3)</sup> Name `Leak` is a subject
-for a possible future change. I used it as it came up in many people's
-thoughts as `Leak`. Since `T: !Leak` types possibly could leak in a
-practical meaning, it can be renamed into `Forget`. Other variants could
-be `Lose`, `!Trace` or `!Reach` (last two as in tracing GC), maybe add
-`-able` suffix?
+This is an automatic trait, which would mean that it
+is implemented for types in a similar manner to `Send`.<sup
+id="cite_ref-3">[\[3\]](#cite_note-3)</sup> Name `Leak` is a subject for a
+possible future change. I used it as it came up in many people's thoughts
+as `Leak`. Since `T: !Leak` types possibly could leak in a practical
+meaning, it can be renamed into `Forget`. Other variants could be `Lose`,
+`!Trace` or `!Reach` (last two as in tracing GC), maybe add `-able`
+suffix?<sup id="postscript_ref-2">[P.S.](#postscript_note-2)</sup>
 
 This trait would help to forbid `!Leak` values from using problematic
 functionality:
@@ -309,11 +310,13 @@ fn _internal_unleak_future() -> impl std::future::Future<Output = ()> + Leak {
 
 </div>
 
-During the execution of a future, local variables have non-static
-lifetimes, however after future yields these lifetimes become static
-unless they refer to something outside of it. This is an example of sound
-and safe lifetime extension thus making the whole future `Leak`. However,
-if when we use `JoinGuard` it becomes a little bit trickier:
+During the execution of a future, local variables have
+non-static lifetimes, however after future yields these lifetimes
+become static unless they refer to something outside of it<sup
+id="postscript_ref-3">[P.S.](#postscript_note-3)</sup>. This is an
+example of sound and safe lifetime extension thus making the whole
+future `Leak`. However, if when we use `JoinGuard` it becomes a little
+bit trickier:
 
 ```rust,ignore
 fn _internal_join_guard_future() -> impl std::future::Future<Output = ()> + Leak {
@@ -339,7 +342,7 @@ future's deallocated local state, since we haven't joined this thread.
 But remember that self-referential (`!Unpin`) future is pinned forever
 after it starts, which means that it is guaranteed there is no way
 (or at least should be no way) to forget and deallocate the underlying
-value in safe code (see [pin's drop guarantee]).  However outside of
+value in safe code (see [pin's drop guarantee]). However outside of
 rust-lang project some people would not follow this rule because they
 don't know about it or maybe discard it purposefully (the *Rust police*
 is coming for you). Maybe in the future it would be possible to somehow
@@ -425,9 +428,9 @@ N: usize> {}` for that?
 
 ### Turning drop invocations into compiler errors
 
-Perhaps we could an have some automatic trait `RoutineDrop` which if
-unimplemented for a type means that dropping this value would result
-in compiler error. This may be useful with hypothetical async drop. It
+Perhaps we could have some automatic trait `RoutineDrop` which if
+unimplemented for a type means that dropping this value would result in
+a compiler error. This may be useful with hypothetical async drop. It
 could also help expand linear type functionality.
 
 ## Forward compatibility
@@ -632,7 +635,37 @@ me.](https://en.wikipedia.org/wiki/Undefined_behavior)
 
 </div>
 
+## Postscript
 
+<div class="referentiable">
+
+1. <span id="postscript_note-1"><a href="#postscript_ref-1" title="Jump up">^</a>
+It is safe to forget an unforgettable type as long as it can outlive,
+broadly speaking, any usage of the type's instance. That usage may be
+thread manager running thread's closure for a bit, which is where that
+`'static` lifetime comes from. Or another example would be to forget
+guard object as long as guarded object is forgotten too. I have modified
+[leak_playground_std]'s `Unleak` to accomodate this feature.
+<!-- FIXME: Add a reference to the complete unforgettable types proposal when it's out -->
+</span>
+
+2. <span id="postscript_note-2"><a href="#postscript_ref-2" title="Jump up">^</a>
+During the discussion about this post people expressed the option that
+`Leak` name is very misleading and that `Forget` would have been a better
+name. I will refer to it as such in my future texts and code.
+</span>
+
+3. <span id="postscript_note-3"><a href="#postscript_ref-3" title="Jump up">^</a>
+I am now convinced there is at least a family of auto traits that to
+determine whether some coroutine implements this trait should ignore its
+local state even if it passes await/yield point, thus I consider this
+questionable argument about lifetimes inside of coroutines transforming
+into `'static` to be obsolete. I'll give an explanation of this perculiar
+feature in one of my next posts.
+<!-- FIXME: Add a reference to the "threads are coroutines" post when it's out -->
+</span>
+
+</div>
 
 ## Credits
 
