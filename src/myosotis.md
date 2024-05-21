@@ -2,6 +2,15 @@
     .referentiable *:target {
         background-color: var(--quote-bg) !important;
     }
+
+    sup {
+        font-size: 80%;
+        unicode-bidi: isolate;
+        white-space: nowrap;
+        font-weight: normal;
+        font-style: normal;
+        line-height: 1;
+    }
 </style>
 
 # The destruction guarantee and linear types formulation
