@@ -11,5 +11,9 @@ git-repository-url = "https://github.com/zetanumbers/book/tree/main"
 edit-url-template = "https://github.com/zetanumbers/book/edit/main/{path}"
 mathjax-support = true
 
+[preprocessor.graphviz]
+command = "mdbook-graphviz"
+respect-theme = true
+
 [rust]
 edition = "2021"

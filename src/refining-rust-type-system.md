@@ -27,6 +27,8 @@ So let's start from the begining.
 
 ## How do lifetimes work?
 
+### Present
+
 You may have heard, that Rust type system was inspired by the [Cyclone language].
 It was a research project, which have implemented a clever region-based memory managment, which relates to the common understanding of how lifetimes work.
 To recap: Rust compiler associates each lifetime token to a certain scope, where an object can live until the end of the scope.
@@ -44,12 +46,14 @@ Thus most languages simply prohibit such order of operations as `drop(b),read(r)
 Rust expresses these rules using two types of borrows: unique (mutable) and shared (immutable) borrows.
 Previous paragraph showed when shared borrows are useful.
 Unique borrows by analogy for any operation `op(b)` could prohibit `r=borrow_mut(b),op(b),write(r)`,
-which becomes useful when working, for example, on enums with fields (check out [`cell-project`] documentation on its limitations).
+which becomes useful when working, for example, on enums with fields (check out [cell-project] crate documentation on its limitations).
+
+### Potential future
 
 On the day of writing this text, Rust borrow checker (from what I know) works on the aforementioned scope-based model of borrows.
 Let's try instead expressing only the necessary restrictions using lifetimes tokens and relations between them.
 Walking back from types for a moment, we have the *lifetime tokens* (further simply *tokens*) such as `'a`, and the *lifetime inclusion* relation `'b: 'a`.
-This is enough to establish a [*preorder*] over those tokens, so let's establish that `'b: 'a` means \\(b ≥ a\\) by the rustacean de-facto convetion.
+This is enough to establish a *[partial order]* over **lifetime** tokens, so let's establish that `'b: 'a` means \\(b ≥ a\\) by the rustacean de-facto convetion.
 Additionally we have `'static` as the largest lifetime token, i.e. for any `'a` holds `'static: 'a` or \\(\mathrm{static} ≥ a\\).
 
 It is also enough to form a *thin category*, with lifetime tokens as its objects and lifetime inclusion as its morphisms,
@@ -59,9 +63,36 @@ which means the same thing except for larget attention to properties such as:
 - Reflexivity (`'a: 'a`);
 - Bonus: the terminal object (`'static`).
 
-<!-- TODO: borrowtime(b) >= lifetime(r) -->
+We could illustrate lifetime inclusions like this:
+
+```dot process
+digraph G {
+  rankdir="LR";
+  node [shape="none"];
+  a -> b;
+  b -> c;
+  a -> c [style="dashed"];
+  c -> static [style="dashed"];
+  b -> static [style="dashed"];
+  a -> static [style="dashed"];
+}
+```
+
+On the left or at the back of an arrow rests a smaller lifetime, when compared with on the right or at the front of it respectivelly.
+Dashed arrows mark implicit relations.
+Such implicit relations is allowed to be ommited when their existance is obvious, for example by transitivity:
+
+```dot process
+digraph G {
+  rankdir="LR";
+  node [shape="none"];
+  a -> b;
+  b -> c;
+  c -> static [style="dashed"];
+}
+```
 
 [Cyclone language]: https://cyclone.thelanguage.org/
 [Non-lexical lifetimes]: https://smallcultfollowing.com/babysteps/blog/2016/04/27/non-lexical-lifetimes-introduction/
-[`cell-project`]: https://docs.rs/cell-project/0.1.4/cell_project/index.html
-[*preorder*]: https://en.wikipedia.org/wiki/Preorder "basically a partial order, except that for 'a ≤ b' and `b ≤ a` judgement 'a = b' may not hold true"
+[cell-project]: https://docs.rs/cell-project/0.1.4/cell_project/index.html
+[partial order]: https://en.wikipedia.org/wiki/Partially_ordered_set
