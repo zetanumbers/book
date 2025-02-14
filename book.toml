@@ -15,5 +15,7 @@ mathjax-support = true
 command = "mdbook-graphviz"
 respect-theme = true
 
+[preprocessor.footnote]
+
 [rust]
 edition = "2021"

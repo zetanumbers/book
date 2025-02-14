@@ -1,3 +1,9 @@
+<style>
+  div.mdbook-graphviz-output {
+    text-align: center;
+  }
+</style>
+
 # Refining the Rust type system
 
 <!--toc:start-->
@@ -27,8 +33,6 @@ So let's start from the begining.
 
 ## How do lifetimes work?
 
-### Present
-
 You may have heard, that Rust type system was inspired by the [Cyclone language].
 It was a research project, which have implemented a clever region-based memory managment, which relates to the common understanding of how lifetimes work.
 To recap: Rust compiler associates each lifetime token to a certain scope, where an object can live until the end of the scope.
@@ -37,62 +41,123 @@ Things changes a bit after introduction of [Non-lexical lifetimes].
 Scopes were redefined in terms of the control-flow instead of the literal source code in order to lift unnecessary restrictions from safe code.
 But what are the "necessary" restrictions in the first place?
 
-In case of object `b: Box<T>` where `T: Copy`, its borrow `br: &Box<T>` or arguably the equivalent `r: &T` shouldn't be used (read from) after `b` is freed (dropped),
-i.e. we empose a restriction that `drop(b)` doesn't succeed `read(r)`.
-Restriction comes from the fact, that reading freed memory could result in loading another object's bytes.
-This makes the program behaviour too difficult to analyze, esspecially with the assumptions we take when coding operations on those objects.
-Thus most languages simply prohibit such order of operations as `drop(b),read(r)`.
-
-Rust expresses these rules using two types of borrows: unique (mutable) and shared (immutable) borrows.
-Previous paragraph showed when shared borrows are useful.
-Unique borrows by analogy for any operation `op(b)` could prohibit `r=borrow_mut(b),op(b),write(r)`,
-which becomes useful when working, for example, on enums with fields (check out [cell-project] crate documentation on its limitations).
-
-### Potential future
-
-On the day of writing this text, Rust borrow checker (from what I know) works on the aforementioned scope-based model of borrows.
-Let's try instead expressing only the necessary restrictions using lifetimes tokens and relations between them.
-Walking back from types for a moment, we have the *lifetime tokens* (further simply *tokens*) such as `'a`, and the *lifetime inclusion* relation `'b: 'a`.
-This is enough to establish a *[partial order]* over **lifetime** tokens, so let's establish that `'b: 'a` means \\(b ≥ a\\) by the rustacean de-facto convetion.
-Additionally we have `'static` as the largest lifetime token, i.e. for any `'a` holds `'static: 'a` or \\(\mathrm{static} ≥ a\\).
-
-It is also enough to form a *thin category*, with lifetime tokens as its objects and lifetime inclusion as its morphisms,
-which means the same thing except for larget attention to properties such as:
-
-- Transitivity (if `'b: 'a` and `'c: 'b` then `'c: 'a`);
-- Reflexivity (`'a: 'a`);
-- Bonus: the terminal object (`'static`).
-
-We could illustrate lifetime inclusions like this:
+Let's try visualize lifetime of some object \\(a\\) using, what I would call, *events*:
 
 ```dot process
 digraph G {
   rankdir="LR";
-  node [shape="none"];
-  a -> b;
-  b -> c;
-  a -> c [style="dashed"];
-  c -> static [style="dashed"];
-  b -> static [style="dashed"];
-  a -> static [style="dashed"];
+  node [shape="none",fontname="MathJax_Math"];
+  edge [arrowhead=empty]
+  ia [label="I(a)"];
+  ea [label="E(a)"];  
+  ia -> ea;
 }
 ```
 
-On the left or at the back of an arrow rests a smaller lifetime, when compared with on the right or at the front of it respectivelly.
-Dashed arrows mark implicit relations.
-Such implicit relations is allowed to be ommited when their existance is obvious, for example by transitivity:
+The events \\(I(a)\\) and \\(E(a)\\) respectivelly stands for the *introduction* of variable \\(a\\) and its *elimination*.
+The arrow represents timeflow: elimination of a variable may occure **strictly after** its introduction.
+This relation can be also described as a strict comparison \\(I(a) \le E(a)\\), forming a *[partial order]* over these events.
+Keep in mind its *transitivity*: \\(X < Z\\) if \\(X < Y\\) and \\(Y < Z\\).
+
+To copy a variable \\(b = a\\), an additional requirement \\(I(a) < I(b) \le E(a)\\) should be put on the order of those events:
 
 ```dot process
 digraph G {
   rankdir="LR";
-  node [shape="none"];
-  a -> b;
-  b -> c;
-  c -> static [style="dashed"];
+  node [shape="none",fontname="MathJax_Math"];
+  edge [arrowhead=empty]
+  ia [label="I(a)"];
+  ea [label="E(a)"];
+  _1 [style=invis];
+  ib [label="I(b)"];
+  eb [label="E(b)"];
+  ia -> ea;
+  ia -> ib [constraint=false];
+  _1 -> ib [style=invis];
+  ib -> eb;
+  ib -> ea [constraint=false,arrowhead=normal];
+}
+```
+
+To copy a variable \\(b = a\\), an additional requirement \\(I(a) < I(b) \le E(a)\\) should be put on the order of those events:
+
+```dot process
+digraph G {
+  rankdir="LR";
+  node [shape="none",fontname="MathJax_Math"];
+  edge [arrowhead=empty]
+  ia [label="I(a)"];
+  ea [label="E(a)"];
+  _1 [style=invis];
+  ib [label="I(b)"];
+  eb [label="E(b)"];
+  ia -> ea;
+  ia -> ib [constraint=false];
+  _1 -> ib [style=invis];
+  ib -> eb;
+  ib -> ea [constraint=false,arrowhead=normal];
+}
+```
+
+To immutably borrow a variable \\(b = \\&a\\), the order \\(I(a) < I(b) < E(b) \le E(a)\\) must be a requirement:
+
+```dot process
+digraph G {
+  rankdir="LR";
+  node [shape="none",fontname="MathJax_Math"];
+  edge [arrowhead=empty]
+  ia [label="I(a)"];
+  ea [label="E(a)"];
+  ib [label="I(b)"];
+  eb [label="E(b)"];
+  ia -> ea;
+  ia -> ib [constraint=false];
+  ib -> eb;
+  ib -> ea [style=dashed,constraint=false];
+  eb -> ea [arrowhead="",constraint=false];
+}
+```
+
+Notice that requirement \\(I(b) < E(a)\\) that we had for copies is recovered via transitivity.
+
+```dot process
+digraph G {
+  rankdir="LR";
+  node [shape="none",fontname="MathJax_Math"];
+  ia [label="I(a)"];
+  ea [label="E(a)"];
+  csab [label="CopyStart(a, b)"];
+  ceab [label="CopyEnd(a, b)"];
+  _1 [style=invis];
+  ib [label="I(b)"];
+  eb [label="E(b)"];
+  csab -> ceab;
+  ia -> csab;
+  ceab -> ea;
+  csab -> ib -> ceab;
+  _1 -> ib [style=invis];
+  ib -> eb;
+}
+```
+
+```dot process
+digraph G {
+  rankdir="LR";
+  node [shape="none",fontname="MathJax_Math"];
+  ia [label="I(a)"];
+  ca [label="Copy(a, b)"];
+  ea [label="E(a)"];
+  _1 [style=invis];
+  ib [label="I(b)"];
+  eb [label="E(b)"];
+  ia -> ca -> ea;
+  ca -> ib [color="#bcbdd0:invis:#bcbdd0",dir=none,constraint=false];
+  _1 -> ib [style=invis];
+  ib -> eb;
+  ib -> ea [style="dashed"];
 }
 ```
 
 [Cyclone language]: https://cyclone.thelanguage.org/
 [Non-lexical lifetimes]: https://smallcultfollowing.com/babysteps/blog/2016/04/27/non-lexical-lifetimes-introduction/
-[cell-project]: https://docs.rs/cell-project/0.1.4/cell_project/index.html
 [partial order]: https://en.wikipedia.org/wiki/Partially_ordered_set
