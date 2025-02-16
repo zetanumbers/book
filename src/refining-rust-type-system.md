@@ -10,6 +10,8 @@
 - [Refining the Rust type system](#refining-the-rust-type-system)
   - [Introduction](#introduction)
   - [How do lifetimes work?](#how-do-lifetimes-work)
+    - [Order of events](#order-of-events)
+    - [Examples](#examples)
 <!--toc:end-->
 
 ## Introduction
@@ -121,49 +123,64 @@ digraph G {
 Notice that the previous requirement \\(I(b) < E(a)\\) we had for copies is recovered via transitivity.
 So if you compare these two diagrams, you will notice \\(E(b) < E(a)\\) standing out.
 This relation is enforsed specifically with the Rust's borrow checker.
-
 However those are not enought to model every possible interaction with values or objects in Rust.
-The notion of *unique borrow*, *shared borrow* and *owned value* gives enough expressiveness to the language.
+The notion of *unique borrow*, *shared borrow* and *owned value* though gives enough expressiveness to the language.
 But combining those is more complicated than giving sensible rules for order of variable introductions and eliminations.
 
+Let's call events of *introducing* and *eliminating* a shared borrow \\(b = \\&a\\) as \\(\mathrm{Shr}(a, b) = I(b)\\) and \\(\mathrm{unShr}(a, b) = E(b)\\) respectivelly.
+For the unique borrow \\(c = \\&\mathrm{mut} \space a\\) let's pick names \\(\mathrm{Brw}(a, c) = I(c)\\) and \\(\mathrm{unBrw}(a, c) = E(c)\\).
+And obviously \\(Shr(a, b) < unShr(a, b)\\) has to hold true.
+Now we could rewrite borrow diargam from above a bit more detailed:
 
 ```dot process
 digraph G {
   rankdir="LR";
   node [shape="none",fontname="MathJax_Math"];
   ia [label="I(a)"];
+  sa [label="Shr(a, b)"]
+  usa [label="unShr(a, b)"]
   ea [label="E(a)"];
-  csab [label="CopyStart(a, b)"];
-  ceab [label="CopyEnd(a, b)"];
   _1 [style=invis];
   ib [label="I(b)"];
   eb [label="E(b)"];
-  csab -> ceab;
-  ia -> csab;
-  ceab -> ea;
-  csab -> ib -> ceab;
+  ia -> sa -> usa -> ea;
+  ia -> ib [constraint=false,style=dashed];
+  sa -> ib [constraint=false,minlen=2,dir=none,color="foreground:invis:foreground"];
   _1 -> ib [style=invis];
   ib -> eb;
+  eb -> usa [constraint=false,dir=none,color="foreground:invis:foreground"];
+  eb -> ea [constraint=false,style=dashed];
 }
 ```
+
+But consider this diagram:
 
 ```dot process
 digraph G {
   rankdir="LR";
   node [shape="none",fontname="MathJax_Math"];
   ia [label="I(a)"];
-  ca [label="Copy(a, b)"];
+  sa [label="Shr(a, b)"];
+  usa [label="unShr(a, b)"];
+  ba [label="Brw(a, c)"];
+  uba [label="unBrw(a, c)"];
   ea [label="E(a)"];
-  _1 [style=invis];
-  ib [label="I(b)"];
-  eb [label="E(b)"];
-  ia -> ca -> ea;
-  ca -> ib [color="foreground:invis:foreground",dir=none,constraint=false];
-  _1 -> ib [style=invis];
-  ib -> eb;
-  ib -> ea [style="dashed"];
+  ia -> sa -> usa -> ea;
+  ia -> ba -> uba -> ea;
+  sa -> ba [style=invis,minlen=2,constraint=false];
+  usa -> uba [style=invis,minlen=2,constraint=false];
 }
 ```
+
+To enforce that unique borrows are actually unique, you need to ensure shared and unique borrow "intervals" do not intersect.
+You could do that with rules:
+
+- \\(unShr(a, b) < Brw(a, c)\\) if \\(Shr(a, b) < Brw(a, c)\\) or \\(unShr(a, b) < unBrw(a, c)\\);
+- \\(unBrw(a, b) < Shr(a, c)\\) if \\(Brw(a, b) < Shr(a, c)\\) or \\(unBrw(a, b) < unShr(a, c)\\);
+
+I would call those implication relations to be *second order relations*, and would appropriatelly visualize them with double arrows:
+
+TODO
 
 [Cyclone language]: https://cyclone.thelanguage.org/
 [Non-lexical lifetimes]: https://smallcultfollowing.com/babysteps/blog/2016/04/27/non-lexical-lifetimes-introduction/
