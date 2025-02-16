@@ -13,7 +13,15 @@ mathjax-support = true
 
 [preprocessor.graphviz]
 command = "mdbook-graphviz"
-respect-theme = true
+theme-colors = { foreground = "foreground" }
+arguments = [
+  "-Tsvg_inline",
+  "-Gbgcolor=transparent",
+  "-Ecolor=foreground",
+  "-Efontcolor=foreground",
+  "-Ncolor=foreground",
+  "-Nfontcolor=foreground",
+]
 
 [preprocessor.footnote]
 
