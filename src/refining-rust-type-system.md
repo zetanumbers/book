@@ -1,3 +1,56 @@
+<link rel="stylesheet" type="text/css" href="http://tikzjax.com/v1/fonts.css">
+<script src="https://tikzjax.com/v1/tikzjax.js"></script>
+
+<script type="text/javascript">
+  window.addEventListener("load", () => {
+    const embeds = new Set(document.querySelectorAll("div.tikz-embed").values().map(el => { return { element: el, fixed: false }; }));
+    const bg_re = /#fff/gi;
+    const fg_re = /#000/gi;
+    const scale = 1.5;
+    let fix_interval;
+    fix_interval = window.setInterval(() => {
+      let fixed_count = 0;
+      for (const embed of embeds) {
+        if (embed.fixed) {
+          fixed_count += 1;
+          continue;
+        }
+
+        const flex_div = embed.element.children[0];
+        const page_div = flex_div?.children[0];
+        if (page_div != null) {
+          if (page_div.classList[0] !== "page") {
+            console.error("Page div not found for", page_div);
+          } else {
+            page_div.classList = [];
+            const svg = page_div.children[0];
+            const new_width = (scale * parseFloat(flex_div.style.width)) + "pt";
+            const new_height = (scale * parseFloat(flex_div.style.height)) + "pt";
+
+            svg.width.baseVal.valueAsString = new_width;
+            svg.height.baseVal.valueAsString = new_height;
+            flex_div.style.width = "100%";
+            flex_div.style.height = new_height;
+            flex_div.style.justifyContent = "center";
+            // flex_div.style.alignItems = "center";
+            page_div.style.width = new_width;
+
+            page_div.innerHTML = page_div.innerHTML
+              .replaceAll(bg_re, "var(--bg)")
+              .replaceAll(fg_re, "var(--fg)");
+
+            embed.fixed = true;
+            fixed_count += 1;
+          }
+        }
+      }
+      if (fixed_count == embeds.size) {
+        window.clearInterval(fix_interval);
+      }
+    }, 1000);
+  });
+</script>
+
 <style>
   div.mdbook-graphviz-output {
     text-align: center;
@@ -47,140 +100,113 @@ But what are the "necessary" restrictions in the first place?
 
 Let's try visualize lifetime of some object \\(a\\) using, what I would call, *events*:
 
-```dot process
-digraph G {
-  rankdir="LR";
-  node [shape="none",fontname="MathJax_Math"];
-  ia [label="I(a)"];
-  ea [label="E(a)"];  
-  ia -> ea;
-}
-```
+<div class="tikz-embed">
+<script type="text/tikz">
+  \begin{tikzcd}
+    a \arrow[r] & a^{-1}
+  \end{tikzcd}
+</script>
+</div>
 
-The events \\(I(a)\\) and \\(E(a)\\) respectivelly stands for the *introduction* of variable \\(a\\) and its *elimination*.
+The events \\(a\\) and \\(a^{-1}\\) respectivelly stands for the *introduction* of variable \\(a\\) and its *elimination*.
 The arrow represents timeflow: elimination of a variable may occure **only after** its introduction.
-This relation can be also described as a strict comparison \\(I(a) < E(a)\\), forming a *[strict partial order]* over those events.
-The comparison's strictness allows to verify event order requirements as long as \\(X < X\\) relation cannot be derived, which usually mean there's a cycle of arrows.
-As such you may remember property of comparisons called *transitivity*: \\(X < Z\\) if \\(X < Y\\) and \\(Y < Z\\).
+This relation can be also described as a strict comparison \\(a < a^{-1}\\), forming a *[strict partial order]* over those events.
+The comparison's strictness allows to verify event order requirements as long as \\(\alpha < \alpha\\) relation cannot be derived, which usually mean there's a cycle of arrows.
+As such you may remember property of comparisons called *transitivity*: \\(\alpha < \gamma\\) if \\(\alpha < \beta\\) and \\(\beta < \gamma\\).
 So there could be as many hidden arrows as this rule allows, and to emphisize some of these, they are shown as dashed ones.
-Later the notion of equality (\\(X = Y\\)) will also play a role of events occuring at the same moment.
+Later the notion of equality (\\(\alpha = \beta\\)) will also play a role of events occuring at the same moment.
 
 ### Examples
 
-To copy or move a variable \\(b := a\\), an additional requirement \\(I(a) < I(b) < E(a)\\) should be put on the order of those events,
+To copy a variable \\(b := a\\), an additional requirement \\(a < b < a^{-1}\\) should be put on the order of those events,
 meaning variable \\(a\\) must exists at the moment of creation of \\(b\\):
 
-```dot process
-digraph G {
-  rankdir="LR";
-  node [shape="none",fontname="MathJax_Math"];
-  ia [label="I(a)"];
-  ea [label="E(a)"];
-  ib [label="I(b)"];
-  eb [label="E(b)"];
-  ia -> ea;
-  ia -> ib [constraint=false,minlen=2];
-  ib -> eb;
-  ib -> ea [constraint=false];
-}
-```
+<div class="tikz-embed">
+<script type="text/tikz">
+  \begin{tikzcd}
+    a \arrow[d] \arrow[r]  & a^{-1} \\
+    b \arrow[r] \arrow[ru] & b^{-1}
+  \end{tikzcd}
+</script>
+</div>
 
-And you could express that constructor of \\(b\\) consumes \\(a\\) with \\(I(b) = E(a)\\):
+And you could express that constructor of \\(b\\) consumes \\(a\\) with \\(b = a^{-1}\\):
 
-```dot process
-digraph G {
-  rankdir="LR";
-  node [shape="none",fontname="MathJax_Math"];
-  ia [label="I(a)"];
-  ea [label="E(a)"];
-  ib [label="I(b)"];
-  eb [label="E(b)"];
-  ia -> ea;
-  ea -> ib [color="foreground:invis:foreground",dir=none];
-  ib -> eb;
-}
-```
+<div class="tikz-embed">
+<script type="text/tikz">
+  \begin{tikzcd}
+    a \arrow[d, dashed] \arrow[r] & a^{-1} \arrow[d, dashed] \\
+    b \arrow[r] \arrow[ru, equal] & b^{-1}
+  \end{tikzcd}
+</script>
+</div>
 
+To immutably borrow a variable \\(b = \\&a\\), the order \\(a < b < b^{-1} < a^{-1}\\) have to be a requirement:
 
-To immutably borrow a variable \\(b = \\&a\\), the order \\(I(a) < I(b) < E(b) < E(a)\\) have to be a requirement:
+<div class="tikz-embed">
+<script type="text/tikz">
+  \begin{tikzcd}
+    a \arrow[d] \arrow[r]          & a^{-1} \\
+    b \arrow[r] \arrow[ru, dashed] & b^{-1} \arrow[u]
+  \end{tikzcd}
+</script>
+</div>
 
-```dot process
-digraph G {
-  rankdir="LR";
-  node [shape="none",fontname="MathJax_Math"];
-  ia [label="I(a)"];
-  ea [label="E(a)"];
-  ib [label="I(b)"];
-  eb [label="E(b)"];
-  ia -> ea;
-  ia -> ib [constraint=false,minlen=2];
-  ib -> eb;
-  ib -> ea [style=dashed,constraint=false];
-  eb -> ea [constraint=false];
-}
-```
-
-Notice that the previous requirement \\(I(b) < E(a)\\) we had for copies is recovered via transitivity.
-So if you compare these two diagrams, you will notice \\(E(b) < E(a)\\) standing out.
+Notice that the previous requirement \\(b < a^{-1}\\) we had for copies is recovered via transitivity.
+So if you compare these two diagrams, you will notice \\(b^{-1} < a^{-1}\\) standing out.
 This relation is enforsed specifically with the Rust's borrow checker.
 However those are not enought to model every possible interaction with values or objects in Rust.
+
+### Borrows
+
 The notion of *unique borrow*, *shared borrow* and *owned value* though gives enough expressiveness to the language.
 But combining those is more complicated than giving sensible rules for order of variable introductions and eliminations.
 
-Let's call events of *introducing* and *eliminating* a shared borrow \\(b = \\&a\\) as \\(\mathrm{Shr}(a, b) = I(b)\\) and \\(\mathrm{unShr}(a, b) = E(b)\\) respectivelly.
-For the unique borrow \\(c = \\&\mathrm{mut} \space a\\) let's pick names \\(\mathrm{Brw}(a, c) = I(c)\\) and \\(\mathrm{unBrw}(a, c) = E(c)\\).
-And obviously \\(Shr(a, b) < unShr(a, b)\\) has to hold true.
+Let's call *introduction* and *elimination* events of a shared borrow \\(b = \\&^{b}\_\mathbf{shr} a \\) and \\(b^{-1} = \\&^{b^{-1}}\_\mathbf{shr} a\\) respectivelly.
+For the unique borrow let's pick names \\(c = \\&^c_\mathbf{mut} a\\) and \\(c^{-1} = \\&^{c^{-1}}_\mathbf{mut} a\\).
+And obviously \\(\\&^{b}\_\mathbf{shr} a < \\&^{b^{-1}}\_\mathbf{shr} a\\) has to hold true.
 Now we could rewrite borrow diargam from above a bit more detailed:
 
-```dot process
-digraph G {
-  rankdir="LR";
-  node [shape="none",fontname="MathJax_Math"];
-  ia [label="I(a)"];
-  sa [label="Shr(a, b)"]
-  usa [label="unShr(a, b)"]
-  ea [label="E(a)"];
-  _1 [style=invis];
-  ib [label="I(b)"];
-  eb [label="E(b)"];
-  ia -> sa -> usa -> ea;
-  ia -> ib [constraint=false,style=dashed];
-  sa -> ib [constraint=false,minlen=2,dir=none,color="foreground:invis:foreground"];
-  _1 -> ib [style=invis];
-  ib -> eb;
-  eb -> usa [constraint=false,dir=none,color="foreground:invis:foreground"];
-  eb -> ea [constraint=false,style=dashed];
-}
-```
+<div class="tikz-embed">
+<script type="text/tikz">
+\begin{tikzcd}
+a \arrow[r] & \&^b_\mathbf{shr} a \arrow[r]  & \&^{b^{-1}}_\mathbf{shr} a \arrow[r] & a^{-1} \\
+            & b \arrow[r] \arrow[u, equal] & b^{-1} \arrow[u, equal]        &
+\end{tikzcd}
+</script>
+</div>
 
 But consider this diagram:
 
-```dot process
-digraph G {
-  rankdir="LR";
-  node [shape="none",fontname="MathJax_Math"];
-  ia [label="I(a)"];
-  sa [label="Shr(a, b)"];
-  usa [label="unShr(a, b)"];
-  ba [label="Brw(a, c)"];
-  uba [label="unBrw(a, c)"];
-  ea [label="E(a)"];
-  ia -> sa -> usa -> ea;
-  ia -> ba -> uba -> ea;
-  sa -> ba [style=invis,minlen=2,constraint=false];
-  usa -> uba [style=invis,minlen=2,constraint=false];
-}
-```
+<div class="tikz-embed">
+<script type="text/tikz">
+\begin{tikzcd}
+            & \&^{c}_\mathbf{mut}a \arrow[r] & \&^{c^{-1}}_\mathbf{mut}a \arrow[rd] &        \\
+a \arrow[rd] \arrow[ru] &                                &                                      & a^{-1} \\
+                        & \&^{b}_\mathbf{shr}a \arrow[r] & \&^{b^{-1}}_\mathbf{shr}a \arrow[ru] &
+\end{tikzcd}
+</script>
+</div>
 
 To enforce that unique borrows are actually unique, you need to ensure shared and unique borrow "intervals" do not intersect.
-You could do that with rules:
+You could do that by adding rules, which allow us to derive contradiction \\(\alpha < \alpha\\) in case of an overlap:
 
-- \\(unShr(a, b) < Brw(a, c)\\) if \\(Shr(a, b) < Brw(a, c)\\) or \\(unShr(a, b) < unBrw(a, c)\\);
-- \\(unBrw(a, b) < Shr(a, c)\\) if \\(Brw(a, b) < Shr(a, c)\\) or \\(unBrw(a, b) < unShr(a, c)\\);
+- \\(\\&^{b^{-1}}\_\mathbf{shr} a < \\&^c_\mathbf{mut} a \quad\text{if either}\quad \\&^{b}\_\mathbf{shr} a < \\&^c_\mathbf{mut} a \quad\text{or}\quad \\&^{b^{-1}}\_\mathbf{shr} a < \\&^{c^{-1}}\_\mathbf{mut} a;\\)
+- \\(\\&^{c^{-1}}\_\mathbf{mut} a < \\&^{b}\_\mathbf{shr} a \quad\text{if either}\quad \\&^c_\mathbf{mut} a < \\&^{b}\_\mathbf{shr} a \quad\text{or}\quad \\&^{c^{-1}}\_\mathbf{mut} a < \\&^{b^{-1}}\_\mathbf{shr} a\text{, i.e. vice versa.}\\)
 
-I would call those implication relations to be *second order relations*, and would appropriatelly visualize them with double arrows:
+I would call those implication relations to be *second order relations*:
 
-TODO
+<div class="tikz-embed">
+<script type="text/tikz">
+\begin{tikzcd}
+                        & \&^{c}_\textbf{mut}a \arrow[r] \arrow[dd, ""{name=L}] & \&^{c^{-1}}_\textbf{mut}a \arrow[rd] \arrow[ldd, dashed, ""{name=C,xshift=-2.5pt,yshift=2.5pt}] \arrow[dd, ""'{name=R}] &        \\
+a \arrow[rd] \arrow[ru] &                                           &                                                  & a^{-1} \\
+                        & \&^{b}_\textbf{shr}a \arrow[r]            & \&^{b^{-1}}_\textbf{shr}a \arrow[ru]             &
+\arrow[Rightarrow, from=L, to=C]
+\arrow[Rightarrow, from=R, to=C]
+\end{tikzcd}
+</script>
+</div>
 
 [Cyclone language]: https://cyclone.thelanguage.org/
 [Non-lexical lifetimes]: https://smallcultfollowing.com/babysteps/blog/2016/04/27/non-lexical-lifetimes-introduction/
