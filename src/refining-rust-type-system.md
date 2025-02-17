@@ -64,7 +64,8 @@
   - [Introduction](#introduction)
   - [How do lifetimes work?](#how-do-lifetimes-work)
     - [Order of events](#order-of-events)
-    - [Examples](#examples)
+    - [Variable's semantics](#variables-semantics)
+    - [Borrows](#borrows)
 <!--toc:end-->
 
 ## Introduction
@@ -114,11 +115,11 @@ This relation can be also described as a strict comparison \\(a < a^{-1}\\), for
 The comparison's strictness allows to verify event order requirements as long as \\(\alpha < \alpha\\) relation cannot be derived, which usually mean there's a cycle of arrows.
 As such you may remember property of comparisons called *transitivity*: \\(\alpha < \gamma\\) if \\(\alpha < \beta\\) and \\(\beta < \gamma\\).
 So there could be as many hidden arrows as this rule allows, and to emphisize some of these, they are shown as dashed ones.
-Later the notion of equality (\\(\alpha = \beta\\)) will also play a role of events occuring at the same moment.
+Later the notion of equality \\(\alpha = \beta\\) will also play a role of events occuring at the same moment.
 
-### Examples
+### Variable's semantics
 
-To copy a variable \\(b := a\\), an additional requirement \\(a < b < a^{-1}\\) should be put on the order of those events,
+To copy a variable \\(b = a\\), an additional requirement \\(a < b < a^{-1}\\) should be put on the order of those events,
 meaning variable \\(a\\) must exists at the moment of creation of \\(b\\):
 
 <div class="tikz-embed">
@@ -130,7 +131,8 @@ meaning variable \\(a\\) must exists at the moment of creation of \\(b\\):
 </script>
 </div>
 
-And you could express that constructor of \\(b\\) consumes \\(a\\) with \\(b = a^{-1}\\):
+This is usually all the variable semantics of any simple programming language, however you know Rust is special.
+As such let's dive deeper and  express the notion of a \\(b\\) constructor consuming \\(a\\) via \\(b = a^{-1}\\):
 
 <div class="tikz-embed">
 <script type="text/tikz">
@@ -141,7 +143,7 @@ And you could express that constructor of \\(b\\) consumes \\(a\\) with \\(b = a
 </script>
 </div>
 
-To immutably borrow a variable \\(b = \\&a\\), the order \\(a < b < b^{-1} < a^{-1}\\) have to be a requirement:
+Then to immutably borrow a variable \\(b = \\&a\\), the order \\(a < b < b^{-1} < a^{-1}\\) have to be a requirement:
 
 <div class="tikz-embed">
 <script type="text/tikz">
@@ -181,29 +183,29 @@ But consider this diagram:
 <div class="tikz-embed">
 <script type="text/tikz">
 \begin{tikzcd}
-            & \&^{c}_\mathbf{mut}a \arrow[r] & \&^{c^{-1}}_\mathbf{mut}a \arrow[rd] &        \\
-a \arrow[rd] \arrow[ru] &                                &                                      & a^{-1} \\
-                        & \&^{b}_\mathbf{shr}a \arrow[r] & \&^{b^{-1}}_\mathbf{shr}a \arrow[ru] &
+                        & \&^{c}_\mathbf{mut}a \arrow[rr] \arrow[dd]           &  & \&^{c^{-1}}_\mathbf{mut}a \arrow[rd] \arrow[dd] &        \\
+a \arrow[rd] \arrow[ru] &                                                      &  &                                                 & a^{-1} \\
+                        & \&^{b}_\mathbf{shr}a \arrow[rr] \arrow[rruu, dotted] &  & \&^{b^{-1}}_\mathbf{shr}a \arrow[ru]            &
 \end{tikzcd}
 </script>
 </div>
 
-To enforce that unique borrows are actually unique, you need to ensure shared and unique borrow "intervals" do not intersect.
-You could do that by adding rules, which allow us to derive contradiction \\(\alpha < \alpha\\) in case of an overlap:
+The relation \\(\\&^{b}\_\textbf{shr}a < \\&^{c^{-1}}\_\textbf{mut}a\\) (denoted by a dotted arrow) would contradict *uniqness* of unique borrows.
+To enforce that borrows are actually unique, you need to ensure shared and unique borrow "intervals" do not intersect.
+You could do that by adding rules, which allows to derive contradiction \\(\alpha < \alpha\\) if overlap between unique and a shared borrow is present:
 
-- \\(\\&^{b^{-1}}\_\mathbf{shr} a < \\&^c_\mathbf{mut} a \quad\text{if either}\quad \\&^{b}\_\mathbf{shr} a < \\&^c_\mathbf{mut} a \quad\text{or}\quad \\&^{b^{-1}}\_\mathbf{shr} a < \\&^{c^{-1}}\_\mathbf{mut} a;\\)
-- \\(\\&^{c^{-1}}\_\mathbf{mut} a < \\&^{b}\_\mathbf{shr} a \quad\text{if either}\quad \\&^c_\mathbf{mut} a < \\&^{b}\_\mathbf{shr} a \quad\text{or}\quad \\&^{c^{-1}}\_\mathbf{mut} a < \\&^{b^{-1}}\_\mathbf{shr} a\text{, i.e. vice versa.}\\)
+\\[\\&^{b^{-1}}\_\mathbf{shr} a < \\&^c_\mathbf{mut} a \quad\text{if either}\quad \\&^{b}\_\mathbf{shr} a < \\&^c_\mathbf{mut} a \quad\text{or}\quad \\&^{b^{-1}}\_\mathbf{shr} a < \\&^{c^{-1}}\_\mathbf{mut} a;\\]
 
-I would call those implication relations to be *second order relations*:
+\\[\\&^{c^{-1}}\_\mathbf{mut} a < \\&^{b}\_\mathbf{shr} a \quad\text{if either}\quad \\&^c_\mathbf{mut} a < \\&^{b}\_\mathbf{shr} a \quad\text{or}\quad \\&^{c^{-1}}\_\mathbf{mut} a < \\&^{b^{-1}}\_\mathbf{shr} a,\quad\text{i.e. vice versa.}\\]
+
+I would call those implication relations to be *second order relations* (denoted by a double arrow):
 
 <div class="tikz-embed">
 <script type="text/tikz">
 \begin{tikzcd}
-                        & \&^{c}_\textbf{mut}a \arrow[r] \arrow[dd, ""{name=L}] & \&^{c^{-1}}_\textbf{mut}a \arrow[rd] \arrow[ldd, dashed, ""{name=C,xshift=-2.5pt,yshift=2.5pt}] \arrow[dd, ""'{name=R}] &        \\
-a \arrow[rd] \arrow[ru] &                                           &                                                  & a^{-1} \\
-                        & \&^{b}_\textbf{shr}a \arrow[r]            & \&^{b^{-1}}_\textbf{shr}a \arrow[ru]             &
-\arrow[Rightarrow, from=L, to=C]
-\arrow[Rightarrow, from=R, to=C]
+                        & \&^{c}_\mathbf{mut}a \arrow[rr] \arrow[dd] &    & \&^{c^{-1}}_\mathbf{mut}a \arrow[rd] \arrow[dd] \arrow[lldd, dashed] &        \\
+a \arrow[rd] \arrow[ru] & {} \arrow[r, Rightarrow]                   & {} & {} \arrow[l, Rightarrow]                                             & a^{-1} \\
+                        & \&^{b}_\mathbf{shr}a \arrow[rr]            &    & \&^{b^{-1}}_\mathbf{shr}a \arrow[ru]                                 &
 \end{tikzcd}
 </script>
 </div>
