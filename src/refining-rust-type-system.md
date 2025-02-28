@@ -62,9 +62,9 @@
 <!--toc:start-->
 - [Refining the Rust type system](#refining-the-rust-type-system)
   - [Introduction](#introduction)
-  - [How do lifetimes work?](#how-do-lifetimes-work)
-    - [Order of events](#order-of-events)
+  - [Order of operations](#order-of-operations)
     - [Variable's semantics](#variables-semantics)
+  - [Interval order](#interval-order)
     - [Borrows](#borrows)
 <!--toc:end-->
 
@@ -87,7 +87,7 @@ I believe I have found a strong framework for designing such difficult features.
 I hope you will consider it in your further work.
 So let's start from the begining.
 
-## How do lifetimes work?
+## Order of operations
 
 You may have heard, that Rust type system was inspired by the [Cyclone language].
 It was a research project, which have implemented a clever region-based memory managment, which relates to the common understanding of how lifetimes work.
@@ -97,9 +97,7 @@ Things changes a bit after introduction of [Non-lexical lifetimes].
 Scopes were redefined in terms of the control-flow instead of the literal source code in order to lift unnecessary restrictions from safe code.
 But what are the "necessary" restrictions in the first place?
 
-### Order of events
-
-Let's try visualize lifetime of some object \\(a\\) using, what I would call, *events*:
+Let's try visualize lifetime of some object \\(a\\) using, what I would call, *operations*:
 
 <div class="tikz-embed">
 <script type="text/tikz">
@@ -109,17 +107,30 @@ Let's try visualize lifetime of some object \\(a\\) using, what I would call, *e
 </script>
 </div>
 
-The events \\(a\\) and \\(a^{-1}\\) respectivelly stands for the *introduction* of variable \\(a\\) and its *elimination*.
+Operations \\(a\\) and \\(a^{-1}\\) respectivelly stands for the *introduction* of variable \\(a\\) and its *elimination*.
 The arrow represents timeflow: elimination of a variable may occure **only after** its introduction.
-This relation can be also described as a strict comparison \\(a < a^{-1}\\), forming a *[strict partial order]* over those events.
-The comparison's strictness allows to verify event order requirements as long as \\(\alpha < \alpha\\) relation cannot be derived, which usually mean there's a cycle of arrows.
+This relation can be also described as a strict comparison \\(a < a^{-1}\\), forming a *[strict partial order]* over those operations.
+The comparison's strictness allows to verify operation order requirements as long as \\(\alpha < \alpha\\) relation cannot be derived, which usually mean there's a cycle of arrows.
 As such you may remember property of comparisons called *transitivity*: \\(\alpha < \gamma\\) if \\(\alpha < \beta\\) and \\(\beta < \gamma\\).
-So there could be as many hidden arrows as this rule allows, and to emphisize some of these, they are shown as dashed ones.
-Later the notion of equality \\(\alpha = \beta\\) will also play a role of events occuring at the same moment.
+Later the notion of equality \\(\alpha = \beta\\) will also play a role of operations occuring simultaneously.
+
+There could be as many hidden arrows as this rule allows, and to emphisize some of these, they are shown as dashed ones.
+Operations are allowed to not immediatelly define relations between some of them:
+
+<div class="tikz-embed">
+<script type="text/tikz">
+  \begin{tikzcd}
+  \alpha \arrow[r] \arrow[d] & \beta \arrow[d] \\
+  \gamma \arrow[r]           & \delta
+  \end{tikzcd}
+</script>
+</div>
+
+But eventually those operations will be sorted into a sequence with respect to those relations, i.e. will be *[linearly extended]*.
 
 ### Variable's semantics
 
-To copy a variable \\(b = a\\), an additional requirement \\(a < b < a^{-1}\\) should be put on the order of those events,
+To copy a variable \\(b = a\\), an additional requirement \\(a < b < a^{-1}\\) should be put on the order of those operations,
 meaning variable \\(a\\) must exists at the moment of creation of \\(b\\):
 
 <div class="tikz-embed">
@@ -156,24 +167,36 @@ Then to immutably borrow a variable \\(b = \\&a\\), the order \\(a < b < b^{-1} 
 
 Notice that the previous requirement \\(b < a^{-1}\\) we had for copies is recovered via transitivity.
 So if you compare these two diagrams, you will notice \\(b^{-1} < a^{-1}\\) standing out.
-This relation is enforsed specifically with the Rust's borrow checker.
-However those are not enought to model every possible interaction with values or objects in Rust.
+This relation is enforsed specifically with the Rust's borrow checker, for which we will later derive a notion of lifetimes.
+
+## Interval order
+
+So far operations were considered to be either equal or non-intersecting, just like points.
+However, I hope you will eventually agree, that there is a great utility in conceptualizing operations as *intervals*.
+That is, one interval could be considered a subinterval of another, thus defining a new relation \\(\beta \subseteq \alpha\\).
+If interval \\(\alpha\\) is before or after \\(\gamma\\), then the subinterval \\(\beta \subseteq \alpha\\) is before or after \\(\gamma\\) too:
+
+\\[
+\frac{\alpha < \gamma \quad \beta \subseteq \alpha}{\beta < \gamma}
+\quad
+\frac{\alpha > \gamma \quad \beta \subseteq \alpha}{\beta > \gamma}
+\\]
+
+Although you shouldn't make a distiction between point-like operations and interval-like operations.
+The essential part of this is just its subinterval (subset) \\(\subseteq\\) relation.
+It allows to implement more modular and sophisticated constructions in our model.
 
 ### Borrows
 
-The notion of *unique borrow*, *shared borrow* and *owned value* though gives enough expressiveness to the language.
-But combining those is more complicated than giving sensible rules for order of variable introductions and eliminations.
-
-Let's call *introduction* and *elimination* events of a shared borrow \\(b = \\&^{b}\_\mathbf{shr} a \\) and \\(b^{-1} = \\&^{b^{-1}}\_\mathbf{shr} a\\) respectivelly.
-For the unique borrow let's pick names \\(c = \\&^c_\mathbf{mut} a\\) and \\(c^{-1} = \\&^{c^{-1}}_\mathbf{mut} a\\).
-And obviously \\(\\&^{b}\_\mathbf{shr} a < \\&^{b^{-1}}\_\mathbf{shr} a\\) has to hold true.
-Now we could rewrite borrow diargam from above a bit more detailed:
+The notion of *unique borrow*, *shared borrow* and *owned value* gives enough expressiveness to the language to build rich safe interfaces.
+These can be expressed using intervals such as \\(\\&^\kappa_\mathbf{shr} a\\), where \\(\mathbf{shr}\\) means *shared* and \\(\kappa\\) is its lifetime to identify borrows.
+Double arrows would annotate subinterval relation \\(\subseteq\\):
 
 <div class="tikz-embed">
 <script type="text/tikz">
-\begin{tikzcd}
-a \arrow[r] & \&^b_\mathbf{shr} a \arrow[r]  & \&^{b^{-1}}_\mathbf{shr} a \arrow[r] & a^{-1} \\
-            & b \arrow[r] \arrow[u, equal] & b^{-1} \arrow[u, equal]        &
+\begin{tikzcd}[column sep=small]
+a \arrow[r] \arrow[d, dashed] & \&^\kappa_\mathbf{shr} a \arrow[r] \arrow[ld, Rightarrow] \arrow[rd, Rightarrow] & a^{-1}                   \\
+b \arrow[rr]                  &                                                                             & b^{-1} \arrow[u, dashed]
 \end{tikzcd}
 </script>
 </div>
@@ -183,29 +206,45 @@ But consider this diagram:
 <div class="tikz-embed">
 <script type="text/tikz">
 \begin{tikzcd}
-                        & \&^{c}_\mathbf{mut}a \arrow[rr] \arrow[dd]           &  & \&^{c^{-1}}_\mathbf{mut}a \arrow[rd] \arrow[dd] &        \\
-a \arrow[rd] \arrow[ru] &                                                      &  &                                                 & a^{-1} \\
-                        & \&^{b}_\mathbf{shr}a \arrow[rr] \arrow[rruu, dotted] &  & \&^{b^{-1}}_\mathbf{shr}a \arrow[ru]            &
+                        & \&^c_\mathbf{mut}a \arrow[rrdd] \arrow[rr]         &  & \&^{c^{-1}}_\mathbf{mut}a \arrow[rd] &        \\
+a \arrow[ru] \arrow[rd] &                                                    &  &                                      & a^{-1} \\
+                        & \&^b_\mathbf{shr}a \arrow[rruu, dotted] \arrow[rr] &  & \&^{b^{-1}}_\mathbf{shr}a \arrow[ru] &
 \end{tikzcd}
 </script>
 </div>
 
-The relation \\(\\&^{b}\_\textbf{shr}a < \\&^{c^{-1}}\_\textbf{mut}a\\) (denoted by a dotted arrow) would contradict *uniqness* of unique borrows.
-To enforce that borrows are actually unique, you need to ensure shared and unique borrow "intervals" do not intersect.
+The relation \\(\\&^b\_\textbf{shr}a < \\&^{c^{-1}}\_\textbf{mut}a\\) (denoted by a dotted arrow) would contradict *temporal uniqness* of unique borrows.
+To enforce that borrows are actually unique, you need to ensure shared and unique borrow *intervals* do not intersect.
+
+
 You could do that by adding rules, which allows to derive contradiction \\(\alpha < \alpha\\) if overlap between unique and a shared borrow is present:
 
-\\[\\&^{b^{-1}}\_\mathbf{shr} a < \\&^c_\mathbf{mut} a \quad\text{if either}\quad \\&^{b}\_\mathbf{shr} a < \\&^c_\mathbf{mut} a \quad\text{or}\quad \\&^{b^{-1}}\_\mathbf{shr} a < \\&^{c^{-1}}\_\mathbf{mut} a;\\]
+\\[\\&^{c^{-1}}\_\mathbf{mut} a < \\&^d_\mathbf{mut} a \quad\text{if}\quad \\&^c\_\mathbf{mut} a < \\&^{d^{-1}}_\mathbf{mut} a;\\]
 
-\\[\\&^{c^{-1}}\_\mathbf{mut} a < \\&^{b}\_\mathbf{shr} a \quad\text{if either}\quad \\&^c_\mathbf{mut} a < \\&^{b}\_\mathbf{shr} a \quad\text{or}\quad \\&^{c^{-1}}\_\mathbf{mut} a < \\&^{b^{-1}}\_\mathbf{shr} a,\quad\text{i.e. vice versa.}\\]
+\\[\\&^{b^{-1}}\_\mathbf{shr} a < \\&^c_\mathbf{mut} a \quad\text{if}\quad \\&^b\_\mathbf{shr} a < \\&^{c^{-1}}_\mathbf{mut} a;\\]
+
+\\[\\&^{c^{-1}}\_\mathbf{mut} a < \\&^b\_\mathbf{shr} a \quad\text{if}\quad \\&^c_\mathbf{mut} a < \\&^{b^{-1}}\_\mathbf{shr} a,\quad\text{i.e. vice versa.}\\]
 
 I would call those implication relations to be *second order relations* (denoted by a double arrow):
 
 <div class="tikz-embed">
 <script type="text/tikz">
-\begin{tikzcd}
-                        & \&^{c}_\mathbf{mut}a \arrow[rr] \arrow[dd] &    & \&^{c^{-1}}_\mathbf{mut}a \arrow[rd] \arrow[dd] \arrow[lldd, dashed] &        \\
-a \arrow[rd] \arrow[ru] & {} \arrow[r, Rightarrow]                   & {} & {} \arrow[l, Rightarrow]                                             & a^{-1} \\
-                        & \&^{b}_\mathbf{shr}a \arrow[rr]            &    & \&^{b^{-1}}_\mathbf{shr}a \arrow[ru]                                 &
+\begin{tikzcd}[row sep=small, column sep=small]
+                          & \&^c_\mathbf{mut}a \arrow[rrrrdddd] \arrow[rrrr] &                                      &  &    & \&^{c^{-1}}_\mathbf{mut}a \arrow[lllldddd, dashed] \arrow[rdd] &        \\
+                          &                                                  & {} \arrow[rr, Rightarrow, bend left] &  & {} &                                                                &        \\
+a \arrow[ruu] \arrow[rdd] &                                                  &                                      &  &    &                                                                & a^{-1} \\
+                          &                                                  &                                      &  &    &                                                                &        \\
+                          & \&^b_\mathbf{shr}a \arrow[rrrr]                  &                                      &  &    & \&^{b^{-1}}_\mathbf{shr}a \arrow[ruu]                          &
+\end{tikzcd}
+</script>
+</div>
+
+<div class="tikz-embed">
+<script type="text/tikz">
+\begin{tikzcd}[column sep=small]
+a \arrow[r] & \&_\mathbf{shr}^b a \arrow[r] \arrow[rrdd] & \&_\mathbf{shr}^{b^{-1}} a \arrow[r, color=red] & \&_\mathbf{mut}^c a \arrow[r, color=red]                        & \&_\mathbf{mut}^{c^{-1}} a \arrow[r, color=red] & \&_\mathbf{shr}^d a \arrow[r] \arrow[lldd, color=red] & \&_\mathbf{shr}^{d^{-1}} a \arrow[r] & a^{-1} \\
+            &                             &                 &                                       &                 &                             &                 &    \\
+            &                             &                 & e \arrow[luu, color=red] \arrow[r] \arrow[rrruu] & e^{-1}          &                             &                 &
 \end{tikzcd}
 </script>
 </div>
@@ -213,4 +252,4 @@ a \arrow[rd] \arrow[ru] & {} \arrow[r, Rightarrow]                   & {} & {} \
 [Cyclone language]: https://cyclone.thelanguage.org/
 [Non-lexical lifetimes]: https://smallcultfollowing.com/babysteps/blog/2016/04/27/non-lexical-lifetimes-introduction/
 [strict partial order]: https://en.wikipedia.org/wiki/Partially_ordered_set
-[ZST]: https://doc.rust-lang.org/nomicon/exotic-sizes.html#zero-sized-types-zsts
+[linearly extended]: https://en.wikipedia.org/wiki/Linear_extension
