@@ -37,7 +37,8 @@
 
             page_div.innerHTML = page_div.innerHTML
               .replaceAll(bg_re, "var(--bg)")
-              .replaceAll(fg_re, "var(--fg)");
+              .replaceAll(fg_re, "var(--fg)")
+              .replaceAll("cmmi10", "MathJax_Math");
 
             embed.fixed = true;
             fixed_count += 1;
@@ -64,7 +65,7 @@
   - [Introduction](#introduction)
   - [Order of operations](#order-of-operations)
     - [Variable's semantics](#variables-semantics)
-  - [Interval order](#interval-order)
+  - [Interval and set orders](#interval-and-set-orders)
     - [Borrows](#borrows)
 <!--toc:end-->
 
@@ -83,9 +84,6 @@ Many people have tackled with the problems such as:
 - Unforgettable and immovable types
 
 I believe I have found a strong framework for designing such difficult features.
-**Be warned: I will be using a bit of the Category Theory to describe some arising constructions, but I'll try making it clear if you are unfamiliar with it.**
-I hope you will consider it in your further work.
-So let's start from the begining.
 
 ## Order of operations
 
@@ -97,7 +95,7 @@ Things changes a bit after introduction of [Non-lexical lifetimes].
 Scopes were redefined in terms of the control-flow instead of the literal source code in order to lift unnecessary restrictions from safe code.
 But what are the "necessary" restrictions in the first place?
 
-Let's try visualize lifetime of some object \\(a\\) using, what I would call, *operations*:
+Let's try visualize lifetime of some object \\(a\\) or it's operational semantics with a *diagram*:
 
 <div class="tikz-embed">
 <script type="text/tikz">
@@ -107,7 +105,7 @@ Let's try visualize lifetime of some object \\(a\\) using, what I would call, *o
 </script>
 </div>
 
-Operations \\(a\\) and \\(a^{-1}\\) respectivelly stands for the *introduction* of variable \\(a\\) and its *elimination*.
+*Operations* \\(a\\) and \\(a^{-1}\\) respectivelly stands for the *introduction* of variable \\(a\\) and its *elimination*, given whatever meaning you would embed those with.
 The arrow represents timeflow: elimination of a variable may occure **only after** its introduction.
 This relation can be also described as a strict comparison \\(a < a^{-1}\\), forming a *[strict partial order]* over those operations.
 The comparison's strictness allows to verify operation order requirements as long as \\(\alpha < \alpha\\) relation cannot be derived, which usually mean there's a cycle of arrows.
@@ -143,13 +141,25 @@ meaning variable \\(a\\) must exists at the moment of creation of \\(b\\):
 </div>
 
 This is usually all the variable semantics of any simple programming language, however you know Rust is special.
-As such let's dive deeper and  express the notion of a \\(b\\) constructor consuming \\(a\\) via \\(b = a^{-1}\\):
+As such let's dive deeper and express the notion of a \\(b\\) constructor consuming \\(a\\) via \\(b = a^{-1}\\):
 
 <div class="tikz-embed">
 <script type="text/tikz">
   \begin{tikzcd}
     a \arrow[d, dashed] \arrow[r] & a^{-1} \arrow[d, dashed] \\
     b \arrow[r] \arrow[ru, equal] & b^{-1}
+  \end{tikzcd}
+</script>
+</div>
+
+With this you could state your first contradictory example.
+You should not be able to construct \\(c\\) from both \\(a\\) and \\(b\\), if construction of \\(b\\) requires consumption of \\(a\\), i.e. \\(b < c < a^{-1} = b\\):
+
+<div class="tikz-embed">
+<script type="text/tikz">
+  \begin{tikzcd}
+    a \arrow[r] \arrow[rd] & a^{-1} \arrow[r, equal, color=red] & b \arrow[r] \arrow[ld, color=red] & b^{-1} \\
+                           & c \arrow[u, color=red] \arrow[rru] \arrow[r]     & c^{-1}                 &
   \end{tikzcd}
 </script>
 </div>
@@ -169,34 +179,63 @@ Notice that the previous requirement \\(b < a^{-1}\\) we had for copies is recov
 So if you compare these two diagrams, you will notice \\(b^{-1} < a^{-1}\\) standing out.
 This relation is enforsed specifically with the Rust's borrow checker, for which we will later derive a notion of lifetimes.
 
-## Interval order
+## Interval and set orders
 
 So far operations were considered to be either equal or non-intersecting, just like points.
-However, I hope you will eventually agree, that there is a great utility in conceptualizing operations as *intervals*.
-That is, one interval could be considered a subinterval of another, thus defining a new relation \\(\beta \subseteq \alpha\\).
-If interval \\(\alpha\\) is before or after \\(\gamma\\), then the subinterval \\(\beta \subseteq \alpha\\) is before or after \\(\gamma\\) too:
+But there is a great utility in conceptualizing operations as *intervals*.
+That is, one interval could be considered a *subinterval* of another, thus defining a new relation \\(\beta \subseteq \alpha\\) with \\(\beta\\) as a subinterval and \\(\alpha\\) as a *superinterval*.
+If interval \\(\alpha\\) is before or after \\(\gamma\\), then the subinterval \\(\beta\\) is respectfully before or after \\(\gamma\\) too:
 
 \\[
-\frac{\alpha < \gamma \quad \beta \subseteq \alpha}{\beta < \gamma}
+\frac{\alpha < \gamma \quad \delta \subseteq \gamma}{\alpha < \delta}
 \quad
-\frac{\alpha > \gamma \quad \beta \subseteq \alpha}{\beta > \gamma}
+\frac{\gamma < \beta \quad \delta \subseteq \gamma}{\delta < \beta}
 \\]
 
+Visualized with a diagram, double arrows would annotate subinterval relation \\(\subseteq\\) from subinterval to superinterval:
+
+<div class="tikz-embed">
+<script type="text/tikz">
+  \begin{tikzcd}
+    \alpha \arrow[r] \arrow[rd, dashed] & \gamma \arrow[r]                                & \beta \\
+                                        & \delta \arrow[u, Rightarrow] \arrow[ru, dashed] &
+  \end{tikzcd}
+</script>
+</div>
+
 Although you shouldn't make a distiction between point-like operations and interval-like operations.
-The essential part of this is just its subinterval (subset) \\(\subseteq\\) relation.
-It allows to implement more modular and sophisticated constructions in our model.
+The essential part of this is just its subinterval \\(\subseteq\\) relation, as it allows to implement more modular and sophisticated constructions in our model.
+Any interval could be embedded with smaller operations as subintervals, while superinterval embodies an abstraction over those.
+
+However for it to be a proper interval requires from some perspective to be continuous, without holes:
+
+\\[
+\frac{\alpha < \delta < \beta \quad \alpha \subseteq \gamma \quad \beta \subseteq \gamma}{\delta \subseteq \gamma}
+\\]
+
+Diagram:
+
+<div class="tikz-embed">
+<script type="text/tikz">
+  \begin{tikzcd}
+                                            & \gamma                                 &                              \\
+    \alpha \arrow[ru, Rightarrow] \arrow[r] & \delta \arrow[u, Rightarrow, dashed] \arrow[r] & \beta \arrow[lu, Rightarrow]
+  \end{tikzcd}
+</script>
+</div>
+
+Without this it would be a simple old *set*, which is weaker than a interval.
 
 ### Borrows
 
 The notion of *unique borrow*, *shared borrow* and *owned value* gives enough expressiveness to the language to build rich safe interfaces.
-These can be expressed using intervals such as \\(\\&^\kappa_\mathbf{shr} a\\), where \\(\mathbf{shr}\\) means *shared* and \\(\kappa\\) is its lifetime to identify borrows.
-Double arrows would annotate subinterval relation \\(\subseteq\\):
+These can be expressed using superintervals such as \\(\\&^\kappa_\mathbf{shr} a\\), where \\(\mathbf{shr}\\) means *shared* and \\(\kappa\\) is its lifetime to identify borrows:
 
 <div class="tikz-embed">
 <script type="text/tikz">
-\begin{tikzcd}[column sep=small]
-a \arrow[r] \arrow[d, dashed] & \&^\kappa_\mathbf{shr} a \arrow[r] \arrow[ld, Rightarrow] \arrow[rd, Rightarrow] & a^{-1}                   \\
-b \arrow[rr]                  &                                                                             & b^{-1} \arrow[u, dashed]
+\begin{tikzcd}
+a \arrow[r] \arrow[d, dashed]       & \&^\kappa_\mathbf{shr} a \arrow[r] & a^{-1}                                          \\
+b \arrow[ru, Rightarrow] \arrow[rr] &                                    & b^{-1} \arrow[lu, Rightarrow] \arrow[u, dashed]
 \end{tikzcd}
 </script>
 </div>
