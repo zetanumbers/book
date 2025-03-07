@@ -224,18 +224,18 @@ Diagram:
 </script>
 </div>
 
-Without this it would be a simple old *set*, which is weaker than a interval.
+Without this it would be a simple *region*, which is weaker than a interval.
 
 ### Borrows
 
-The notion of *unique borrow*, *shared borrow* and *owned value* gives enough expressiveness to the language to build rich safe interfaces.
+The notion of *unique borrow*, *shared borrow* and *owned value* allows to express rich safe language interfaces.
 These can be expressed using superintervals such as \\(\\&^\kappa_\mathbf{shr} a\\), where \\(\mathbf{shr}\\) means *shared* and \\(\kappa\\) is its lifetime to identify borrows:
 
 <div class="tikz-embed">
 <script type="text/tikz">
-\begin{tikzcd}
-a \arrow[r] \arrow[d, dashed]       & \&^\kappa_\mathbf{shr} a \arrow[r] & a^{-1}                                          \\
-b \arrow[ru, Rightarrow] \arrow[rr] &                                    & b^{-1} \arrow[lu, Rightarrow] \arrow[u, dashed]
+\begin{tikzcd}[column sep=small]
+a \arrow[rr] \arrow[rd, dashed] &                                     & \&^\kappa_\mathbf{shr} a \arrow[rr] &                                                  & a^{-1} \\
+                                & b \arrow[ru, Rightarrow] \arrow[rr] &                                     & b^{-1} \arrow[lu, Rightarrow] \arrow[ru, dashed] &
 \end{tikzcd}
 </script>
 </div>
@@ -244,15 +244,17 @@ But consider this diagram:
 
 <div class="tikz-embed">
 <script type="text/tikz">
-\begin{tikzcd}
-                        & \&^c_\mathbf{mut}a \arrow[rrdd] \arrow[rr]         &  & \&^{c^{-1}}_\mathbf{mut}a \arrow[rd] &        \\
-a \arrow[ru] \arrow[rd] &                                                    &  &                                      & a^{-1} \\
-                        & \&^b_\mathbf{shr}a \arrow[rruu, dotted] \arrow[rr] &  & \&^{b^{-1}}_\mathbf{shr}a \arrow[ru] &
+\begin{tikzcd}[row sep=small]
+                                                                  & c \arrow[rd, Rightarrow] \arrow[rr] &                                                                  & c^{-1} \arrow[ld, Rightarrow] \arrow[rdd, dashed] &        \\
+                                                                  &                                     & \&^\iota_\mathbf{mut} a \arrow[rrd] \arrow[dd, no head, dotted] &                                                   &        \\
+a \arrow[rru] \arrow[ruu, dashed] \arrow[rrd] \arrow[rdd, dashed] &                                     &                                                                  &                                                   & a^{-1} \\
+                                                                  &                                     & \&^\kappa_\mathbf{shr} a \arrow[rru]                              &                                                   &        \\
+                                                                  & b \arrow[rr] \arrow[ru, Rightarrow] &                                                                  & b^{-1} \arrow[ruu, dashed] \arrow[lu, Rightarrow] &
 \end{tikzcd}
 </script>
 </div>
 
-The relation \\(\\&^b\_\textbf{shr}a < \\&^{c^{-1}}\_\textbf{mut}a\\) (denoted by a dotted arrow) would contradict *temporal uniqness* of unique borrows.
+To model *temporal uniqness* of unique borrows, you would require...
 To enforce that borrows are actually unique, you need to ensure shared and unique borrow *intervals* do not intersect.
 
 
