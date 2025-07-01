@@ -3,7 +3,7 @@ authors = ["Daria Sukhonina"]
 language = "en"
 multilingual = false
 src = "src"
-title = "zetanumbers book"
+title = "Daria Sukhonina's scribbles"
 
 [output.html]
 site-url = "/book/"

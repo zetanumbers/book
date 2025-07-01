@@ -2,8 +2,8 @@
 
 [Introduction](./README.md)
 
-# Posts
+# Recent posts
 
-- [Unforgettable types](./myosotis.md)
-- [Async drop design explainer](./async-drop-design.md)
 - [Natural aliasing](./natural-aliasing.md)
+- [Async drop design explainer](./async-drop-design.md)
+- [Unforgettable types](./myosotis.md)
