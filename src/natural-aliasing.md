@@ -12,10 +12,10 @@ Furthermore Rust's aim at everlasting stability makes me more sensitive to such 
 More than a year later after my initial suspicions, today I've found a way to substantiate some of my alternative vision on the language's type system.
 In this text I'll touch upon several aspects of our type system:
 
+- Why and how `&Cell` is a natural extension of mutable borrows;
+- Alternative, more general than `Send`, approach to thread-safety;
 - Why and how `Send` futures may contain `!Send` types like `Rc`;
-- Alternative, stronger than `Send`, approach to thread-safety;
-- Why hypothesized [`Forget`] marker trait does not prevent memory leaks and remains useful;
-- Why `&Cell` is a natural extension of mutable borrows;
+- Why and how hypothesized [`Forget`] marker trait does and does not prevent memory leaks and use-after-free bugs;
 - The general role of less or more so copyable types in Rust's type system;
 - Self-referencial types;
 - Etc.
@@ -84,6 +84,7 @@ fn assert_aliased<'a>(a: &Cell<'a, S>, b: &Cell<'a, S>) {
 
 The same marker lifetime establishes that these cells alias the same memory region.
 Compiler would complain otherwise if such `Cell` is designed properly (like [`GhostCell`] is).
+**This syntax essentially expresses the notion of "what's put inside stays there unless overwritten", for a collection of access points, i.e. aliasing references.**
 
 This comes with a cool consiquence of alternative definition of thread-safe/unsafe types.
 It would be safe to send a type across the thread boundary only if it's aliased memory region isn't aliased anywhere else.
@@ -91,6 +92,7 @@ To avoid to talk about plain borrows, consider `Rc<'a, T>` implemented using new
 It is safe to send `a: Rc<'a, T>` to another thread if there isn't any other `b: Rc<'a, T>` left on the old thread.
 But more than that, if there is another `b: Rc<'a, T>`, we still could send both of them `(a, b)` across threads.
 I have found type annotation for [higher-ranked lifetimes] `(a, b): for<'a> (Rc<'a, T>, Rc<'a, T>)`, although formaly ambiguous, to be quite fitting.
+Now you can see yourself why `&mut T` would be just a non-copyable version of `for<'a> &Cell<'a, T>`.
 
 From this we could even restore the original `Send` oriented design.
 The `!Send` implementation on a type essentially tells that utilized memory region could be (non-atomically, without synchronization) aliased from the *current thread*.
@@ -112,13 +114,55 @@ Unless that future's internal structure contains types only with `for<'a>` bound
 Unfortunatelly it's not possible to realize such thread-safety checking behaviour in the type system today.
 It would require to extend capabilities of lifetimes, potentially even allowing self-referential types to be defined in safe way,
 or even introducing another type of aliasing lifetime.
-On that note, this analogously explains why regular lifetimes inside of an async block is "squashed" to `'static` from the outside perspective.
-Such lifetimes simply aren't reflected in the future's type boundary.
 
 [`GhostCell`]: https://plv.mpi-sws.org/rustbelt/ghostcell/
 [higher-ranked lifetimes]: https://doc.rust-lang.org/nomicon/hrtb.html
 [stackful]: https://docs.rs/corosensei/0.2.2/corosensei/index.html
 [**evident cornerstone**]: https://blaz.is/blog/post/future-send-was-unavoidable/
+
+### Borrows and aliasing
+
+On that note, this analogously explains why regular lifetimes inside of an async block is "squashed" to `'static` from the outside perspective.
+Such lifetimes simply aren't reflected in the future's type boundary.
+
+But to dive a bit deeper, we have to develop this connection of borrows and aliasing further.
+What does (re)borrowing actually mean?
+For this let's investigate a difference between two aliasing cell references and one mutable reborrow of a mutable reference:
+
+```rust
+// notice symmetry between `a` and `b`
+fn assert_aliased_cell<'a>(a: &Cell<'a, S>, b: &Cell<'a, S>) {
+  a.set(S { c: 13, ..a.get() });
+  b.set(S { c: 42, ..b.get() });
+  assert_eq!(a.get().c, 42); // ok!
+}
+
+fn assert_aliased_mut(a: &mut S) {
+  a.c = 13;
+  let b = &mut *a; // reborrow
+  b.c = 42;
+  assert_eq!(a.c, 42); // obviously ok!
+}
+
+// what if we swap `a` and `b`?
+// now notice the antisymmetry
+fn assert_aliased_mut_bad(b: &mut S) {
+  let b = &mut *a; // reborrow
+  a.c = 13;
+  b.c = 42; // compiler error!
+  assert_eq!(a.c, 42);
+}
+```
+
+So it looks like that it isn't actually correct to call mutable references unique.
+Rather, mutable borrows allow aliasing in a directed fasion.
+Pick the `assert_aliased_mut` example.
+As you can see, from `a`'s perspective `b` aliases it, while from `b`'s point of view nothing aliases it at the moment, it is *exclusive*.
+But I think an even better interpretation would be that `b` tells `a` to not use their aliasing, while `a` has no say in what `b` does.
+In this sense `b` is larger than `a`, as former *controls* the latter.
+
+Yet this control dynamic *inverts* upon the execution, translating into lifetimes.
+The controller never preceeds the controlled, i.e. for controller entity to be established, there already has to be something to control.
 
 ## Justification
 
