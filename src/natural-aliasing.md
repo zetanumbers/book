@@ -69,7 +69,7 @@ To achieve this Rust restricts mutable borrows to be uncopyable, ensuring a muta
 This rule relates to the second JS case when we were aware of aliasing taking place, as it rules out information about aliasing at least one important way.
 But what if it was more than one way?
 
-### Cooler `Send`
+### Arbitrary aliasing
 
 Consider adding a marker lifetime to the `Cell<'a, T>` type, to establish aliasing at the type level.
 Although I am simplifying, now it is possible to express aliasing requirements like:
@@ -84,7 +84,14 @@ fn assert_aliased<'a>(a: &Cell<'a, S>, b: &Cell<'a, S>) {
 
 The same marker lifetime establishes that these cells alias the same memory region.
 Compiler would complain otherwise if such `Cell` is designed properly (like [`GhostCell`] is).
-**This syntax essentially expresses the notion of "what's put inside stays there unless overwritten", for a collection of access points, i.e. aliasing references.**
+This syntax essentially expresses the notion of "if you have put something in `a` or `b` you will get it from `a` and `b`", for aliasing references `a` and `b`.
+However it is unseparable, as you cannot look at only one of two variables, without knowing what happens to the second one.
+Instead of picking memory regions at random, programmers rely on memory allocators to ensure their memory is generally unaliased.
+*Aliasing information is essential to develop a reasonable program*.
+
+[`GhostCell`]: https://plv.mpi-sws.org/rustbelt/ghostcell/
+
+### Better `Send`
 
 This comes with a cool consiquence of alternative definition of thread-safe/unsafe types.
 It would be safe to send a type across the thread boundary only if it's aliased memory region isn't aliased anywhere else.
@@ -115,12 +122,11 @@ Unfortunatelly it's not possible to realize such thread-safety checking behaviou
 It would require to extend capabilities of lifetimes, potentially even allowing self-referential types to be defined in safe way,
 or even introducing another type of aliasing lifetime.
 
-[`GhostCell`]: https://plv.mpi-sws.org/rustbelt/ghostcell/
 [higher-ranked lifetimes]: https://doc.rust-lang.org/nomicon/hrtb.html
 [stackful]: https://docs.rs/corosensei/0.2.2/corosensei/index.html
 [**evident cornerstone**]: https://blaz.is/blog/post/future-send-was-unavoidable/
 
-### Borrows and aliasing
+### Directional aliasing and borrows
 
 On that note, this analogously explains why regular lifetimes inside of an async block is "squashed" to `'static` from the outside perspective.
 Such lifetimes simply aren't reflected in the future's type boundary.
@@ -158,13 +164,19 @@ So it looks like that it isn't actually correct to call mutable references uniqu
 Rather, mutable borrows allow aliasing in a directed fasion.
 Pick the `assert_aliased_mut` example.
 As you can see, from `a`'s perspective `b` aliases it, while from `b`'s point of view nothing aliases it at the moment, it is *exclusive*.
-But I think an even better interpretation would be that `b` tells `a` to not use their aliasing, while `a` has no say in what `b` does.
-In this sense `b` is larger than `a`, as former *controls* the latter.
-
-Yet this control dynamic *inverts* upon the execution, translating into lifetimes.
-The controller never preceeds the controlled, i.e. for controller entity to be established, there already has to be something to control.
+At this moment it is as reasonable to look at `b` alone and to look at both `a` and `b`, while considering only `a` won't tell you much about program's behavior.
+In this sense `a`'s aliasing info is included in `b`'s aliasing info.
 
 ## Justification
+
+I hope it is clear to you why looking at aliasing variables separatelly hurts programmer's ability to develop reasoning about a program's behavior.
+If you have ever delved into topology, you might recognize that neighborhoods of aliased variables could be expressed with some topology.
+
+Assuming there's a continuous map \\(m\\) from a collection of aliasing variables \\(V\\) to a powerset of the address space \\(2^A\\),
+there's a smallest (by the number of open sets) fitting topology \\(\tau\\) with open sets defined by preimages of map \\(m\\).
+But as we established for borrows, addresses could be aliased in a directed fashion.
+In such case it is more useful instead of a powerset \\(2^A\\), i.e. map to boolean set \\(2\\),
+to use a map to the natural numbers \\(\mathbb{N}^A\\), which would more closely resemble the hierarchy of borrows.
 
 In the first half of the 20th century mathematicians were investigating bounds of the classical logic.
 As one of significant results of this work Gerhard Gentzen prooved the cut-elimination theorem, which relates to the consistency of logic.
