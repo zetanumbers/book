@@ -68,7 +68,7 @@ To achieve this Rust restricts mutable borrows to be uncopyable, ensuring a muta
 This rule relates to the second JS case when we were aware of aliasing taking place, as it rules out information about aliasing at least one important way.
 But what if it was more than one way?
 
-### Arbitrary aliasing
+### Simple aliasing
 
 Consider adding a marker lifetime to the `Cell<'a, T>` type, to establish aliasing at the type level.
 Although I am simplifying, now it is possible to express aliasing requirements like:
@@ -125,7 +125,7 @@ or even introducing another type of aliasing lifetime.
 [stackful]: https://docs.rs/corosensei/0.2.2/corosensei/index.html
 [**evident cornerstone**]: https://blaz.is/blog/post/future-send-was-unavoidable/
 
-### Directional aliasing and borrows
+### Compound aliasing and borrows
 
 On that note, this analogously explains why regular lifetimes inside of an async block is "squashed" to `'static` from the outside perspective.
 Such lifetimes simply aren't reflected in the future's type boundary.
@@ -160,7 +160,7 @@ fn assert_aliased_mut_bad(b: &mut S) {
 ```
 
 So it looks like that it isn't actually correct to call mutable references unique.
-Rather, mutable borrows allow aliasing in a directed fashion.
+Rather, mutable borrows allow aliasing in a compound fashion.
 Pick the `assert_aliased_mut` example.
 As you can see, from `a`'s perspective `b` aliases it, while from `b`'s point of view nothing aliases it at the moment, it is *exclusive*.
 At this moment it is as reasonable to look at `b` alone and to look at both `a` and `b`, while considering only `a` won't tell you much about program's behavior.
@@ -169,15 +169,30 @@ In this sense `a`'s aliasing info is included in `b`'s aliasing info.
 ## Justification
 
 I hope it is clear to you why looking at aliasing variables separately hurts programmer's ability to develop reasoning about a program's behavior.
-If you have ever delved into topology, you might recognize that neighborhoods of aliased variables could be expressed with some topology.
+To be more precise, you have to know what happens to different aliases to construct a sound program.
+While it is possible to write a public library, working with aliased memory, it is library users' task to put the pieces together to conclude a program.
+Otherwise we would call that possible memory corruption.
 
-Assuming there's a continuous map \\(m\\) from a collection of aliasing variables \\(V\\) to a powerset of the address space \\(2^A\\),
-there's a smallest (by the number of open sets) fitting topology \\(\tau\\) with open sets defined by preimages of map \\(m\\).
-But as we established for borrows, addresses could be aliased in a directed fashion.
-In such case it is more useful instead of a powerset \\(2^A\\), i.e. map to boolean set \\(2\\),
-to use a map to the natural numbers \\(\mathbb{N}^A\\), which would more closely resemble the hierarchy of borrows.
+If you have ever delved into topology, you might recognize that neighborhoods of aliased variables could be expressed with some topology.
+Naively we could say two variables alias the same memory whenever they alias same memory addresses.
+This means entails map \\(m\\) from the collection of aliasing variables \\(V\\) to a powerset of the address space \\(2^A\\).
+However this doesn't account for compound aliasing of reborrowing.
+Instead we should specify compoundness level using natural numbers: \\((1 + \mathbb{N})^A\\).
+Call this \\(m\\) an *address map*.
+
+Neighborhoods in topology on a collection of aliasing variables are grouped by their mapping to same addresses,
+while substracting the number of lowest compoundness levels over some addresses also gives an open set.
+In other words, assuming \\(\mathbb{N}\\) is a topological space, with, for every natural number \\(n\\), open set defined as every natural number below \\(n\\),
+there's a smallest fitting topology \\(\tau\\) with open sets defined from preimages of continuous map \\(m\\).
+For any set of aliasing variables \\(V\\) we will call this \\(\tau_V\\) an *aliasing topology*.
 
 In the first half of the 20th century mathematicians were investigating bounds of the classical logic.
 As one of significant results of this work Gerhard Gentzen proved the cut-elimination theorem, which relates to the consistency of logic.
 Proof's essential part is reasoning about logical connectives and their introduction and elimination.
 This thinking will suit our purposes for proving that some types' properties are closed under interactions with them.
+
+First consider type product, i.e. pairs and tuples.
+Address map of tuple of variables has to be the union of address maps of individual variables.
+For pair:
+
+\\[\forall \\{x: X, y: Y\\} \subseteq V : m((x, y): X \times Y) := m(x) \cup m(y)\\]
