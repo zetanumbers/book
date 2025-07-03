@@ -21,11 +21,13 @@ petrochenkov
 powerset
 preimages
 reborrow
+reborrowing
 repr
 rustc
 rustdoc
 stackful
 stackless
+substracting
 subtyping
 thrd
 tigerbeetle

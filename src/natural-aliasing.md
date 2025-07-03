@@ -166,7 +166,25 @@ As you can see, from `a`'s perspective `b` aliases it, while from `b`'s point of
 At this moment it is as reasonable to look at `b` alone and to look at both `a` and `b`, while considering only `a` won't tell you much about program's behavior.
 In this sense `a`'s aliasing info is included in `b`'s aliasing info.
 
+### Immutable borrows
+
+Immutable borrows allows us to worry less about aliasing.
+Rather, restricting mutability of a reference allows us to disregard any aliasing information on that borrow.
+That is, aliasing information on an immutable borrow is quite trivial, limited to compound aliasing of borrowed by it mutable references.
+Even more trivial case would be of a `static SOME_REFERENCE: &'static T = &T {}`, where static immutable references are ideally what a programmer would like to see.
+This is the kind of aliasing functional programming languages use, where every variable should be interpreted "at face value".
+
+### Allocations
+
+So what about a `Box` we would only read from?
+Would that be the same as for static immutable references?
+Obviously no, ...
+
+<!-- TODO: Forget allows leaks -->
+
 ## Justification
+
+### Aliasing topology
 
 I hope it is clear to you why looking at aliasing variables separately hurts programmer's ability to develop reasoning about a program's behavior.
 To be more precise, you have to know what happens to different aliases to construct a sound program.
@@ -179,12 +197,15 @@ This means entails map \\(m\\) from the collection of aliasing variables \\(V\\)
 However this doesn't account for compound aliasing of reborrowing.
 Instead we should specify compoundness level using natural numbers: \\((1 + \mathbb{N})^A\\).
 Call this \\(m\\) an *address map*.
+<!-- FIXME: 1 + N doesn't fit immutable borrows -->
 
 Neighborhoods in topology on a collection of aliasing variables are grouped by their mapping to same addresses,
 while substracting the number of lowest compoundness levels over some addresses also gives an open set.
 In other words, assuming \\(\mathbb{N}\\) is a topological space, with, for every natural number \\(n\\), open set defined as every natural number below \\(n\\),
-there's a smallest fitting topology \\(\tau\\) with open sets defined from preimages of continuous map \\(m\\).
+there's a smallest fitting topology, set of open subsets, \\(\tau\\) with open sets defined from preimages of continuous map \\(m\\).
 For any set of aliasing variables \\(V\\) we will call this \\(\tau_V\\) an *aliasing topology*.
+
+### Connectives
 
 In the first half of the 20th century mathematicians were investigating bounds of the classical logic.
 As one of significant results of this work Gerhard Gentzen proved the cut-elimination theorem, which relates to the consistency of logic.
@@ -193,6 +214,29 @@ This thinking will suit our purposes for proving that some types' properties are
 
 First consider type product, i.e. pairs and tuples.
 Address map of tuple of variables has to be the union of address maps of individual variables.
-For pair:
+For a pair \\(X \times Y\\):
 
-\\[\forall \\{x: X, y: Y\\} \subseteq V : m((x, y): X \times Y) := m(x) \cup m(y)\\]
+\\[\forall \\{x: X, y: Y\\} \subseteq V : m((x, y): X \times Y) \equiv m(x) \cup m(y)\\]
+
+Now before doing characterization of sum type, basically an enum type with fields, it has to be said that usually there's already some positive (sum-like) type present.
+For Rust we could choose any of bool, u8, u16, u32, etc, because those types do represent disjoint sums of possible states: 0, 1, 2, etc.
+
+This is our key to generalize sum types.
+Rust's algebraic data types internally have something called a [discriminant].
+To construct an enumeration with fields, we have to first consider a tuple of a discriminant states and associated to this variant fields.
+Second, we "glue" these tuples into a single type varying by differing states of the discriminant.
+So for sum type \\(X + Y\\), with \\((0_2, x)\\) and \\((1_2, y)\\) representing constructors of enum's variants:
+
+\\[
+\forall (x: X) \in V : m((0_2, x): X + Y) \equiv m(0_2) \cup m(x)
+\\]
+\\[
+\forall (y: Y) \in V : m((1_2, y): X + Y) \equiv m(1_2) \cup m(y)
+\\]
+
+As you can see, address map may vary over different variants on an enumeration.
+That's fine and useful for the purpose of clarifying aspects of the natural aliasing.
+You may argue that `dyn Trait` are sum types with varying layout, and thus aliasing.
+I believe the procedure for establishing a stable layout, like for our regular enums, should be clear to you.
+
+[discriminant]: https://doc.rust-lang.org/reference/items/enumerations.html#discriminants
