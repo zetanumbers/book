@@ -12,4 +12,5 @@ ignorePaths:
   - '/book'
   - '/book.toml'
   - '/project-words.txt'
+  - '/shell.nix'
 

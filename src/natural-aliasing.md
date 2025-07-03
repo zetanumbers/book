@@ -3,11 +3,11 @@
 ## Motivation
 
 I have in a sense conflicting feelings about Rust.
-In my opinion it is the most expressive and intentive compiled language as of 2025 that I've yet seen.
+In my opinion it is the most expressive compiled language as of 2025 that I've yet seen.
 It is really a miracle that such a complicated programming language became mainstream.
 It is a proof that language's complexity could be beneficial up to defining its public image.
-However I can't get rid of the occasional feeling that some suboptimal descisions about Rust's development were made.
-Furthermore Rust's aim at everlasting stability makes me more sensitive to such descisions.
+However I can't get rid of the occasional feeling that some suboptimal decisions about Rust's development were made.
+Furthermore Rust's aim at everlasting stability makes me more sensitive to such decisions.
 
 More than a year later after my initial suspicions, today I've found a way to substantiate some of my alternative vision on the language's type system.
 In this text I'll touch upon several aspects of our type system:
@@ -17,7 +17,6 @@ In this text I'll touch upon several aspects of our type system:
 - Why and how `Send` futures may contain `!Send` types like `Rc`;
 - Why and how hypothesized [`Forget`] marker trait does and does not prevent memory leaks and use-after-free bugs;
 - The general role of less or more so copyable types in Rust's type system;
-- Self-referencial types;
 - Etc.
 
 [`Forget`]: ./myosotis.md
@@ -65,7 +64,7 @@ fn assert_unaliased(a: &Cell<S>, b: &Cell<S>) {
 }
 ```
 
-To achieve this Rust restricts mutable borrows to be uncopyable, ensuring a mutable borrow is aliased in context exlusivelly by one variable's name.
+To achieve this Rust restricts mutable borrows to be uncopyable, ensuring a mutable borrow is aliased in context exclusively by one variable's name.
 This rule relates to the second JS case when we were aware of aliasing taking place, as it rules out information about aliasing at least one important way.
 But what if it was more than one way?
 
@@ -85,7 +84,7 @@ fn assert_aliased<'a>(a: &Cell<'a, S>, b: &Cell<'a, S>) {
 The same marker lifetime establishes that these cells alias the same memory region.
 Compiler would complain otherwise if such `Cell` is designed properly (like [`GhostCell`] is).
 This syntax essentially expresses the notion of "if you have put something in `a` or `b` you will get it from `a` and `b`", for aliasing references `a` and `b`.
-However it is unseparable, as you cannot look at only one of two variables, without knowing what happens to the second one.
+However it is indivisible, as you cannot look at only one of two variables, without knowing what happens to the second one.
 Instead of picking memory regions at random, programmers rely on memory allocators to ensure their memory is generally unaliased.
 *Aliasing information is essential to develop a reasonable program*.
 
@@ -93,18 +92,18 @@ Instead of picking memory regions at random, programmers rely on memory allocato
 
 ### Better `Send`
 
-This comes with a cool consiquence of alternative definition of thread-safe/unsafe types.
+This comes with a cool consequence of alternative definition of thread-safe/unsafe types.
 It would be safe to send a type across the thread boundary only if it's aliased memory region isn't aliased anywhere else.
 To avoid to talk about plain borrows, consider `Rc<'a, T>` implemented using new `Cell<'a, usize>` as a reference counter.
 It is safe to send `a: Rc<'a, T>` to another thread if there isn't any other `b: Rc<'a, T>` left on the old thread.
 But more than that, if there is another `b: Rc<'a, T>`, we still could send both of them `(a, b)` across threads.
-I have found type annotation for [higher-ranked lifetimes] `(a, b): for<'a> (Rc<'a, T>, Rc<'a, T>)`, although formaly ambiguous, to be quite fitting.
+I have found type annotation for [higher-ranked lifetimes] `(a, b): for<'a> (Rc<'a, T>, Rc<'a, T>)`, although formally ambiguous, to be quite fitting.
 Now you can see yourself why `&mut T` would be just a non-copyable version of `for<'a> &Cell<'a, T>`.
 
 From this we could even restore the original `Send` oriented design.
 The `!Send` implementation on a type essentially tells that utilized memory region could be (non-atomically, without synchronization) aliased from the *current thread*.
 This stems from the assumption that the function body execution always stays on the same thread until its finished.
-That assumption is the reason of some limitations on stackless (async blocks) and [stackful] couroutines around `Send`.
+That assumption is the reason of some limitations on stackless (async blocks) and [stackful] coroutines around `Send`.
 This also allows to store `!Send` types in thread locals, which then becomes the [**evident cornerstone**] of problems with async and `Send`.
 
 The solution to that problem would be to abstract assumption into a type, let's say, `ThreadLocalKey<'a>` zero-sized type that would allow thread-unsafe access to thread locals.
@@ -118,7 +117,7 @@ Unless that future's internal structure contains types only with `for<'a>` bound
 
 **You should notice that now the thread-safe property of a type could be defined solely from the *type's boundary*, i.e. its safe public interface.**
 
-Unfortunatelly it's not possible to realize such thread-safety checking behaviour in the type system today.
+Unfortunately it's not possible to realize such thread-safety checking behavior in the type system today.
 It would require to extend capabilities of lifetimes, potentially even allowing self-referential types to be defined in safe way,
 or even introducing another type of aliasing lifetime.
 
@@ -161,7 +160,7 @@ fn assert_aliased_mut_bad(b: &mut S) {
 ```
 
 So it looks like that it isn't actually correct to call mutable references unique.
-Rather, mutable borrows allow aliasing in a directed fasion.
+Rather, mutable borrows allow aliasing in a directed fashion.
 Pick the `assert_aliased_mut` example.
 As you can see, from `a`'s perspective `b` aliases it, while from `b`'s point of view nothing aliases it at the moment, it is *exclusive*.
 At this moment it is as reasonable to look at `b` alone and to look at both `a` and `b`, while considering only `a` won't tell you much about program's behavior.
@@ -169,7 +168,7 @@ In this sense `a`'s aliasing info is included in `b`'s aliasing info.
 
 ## Justification
 
-I hope it is clear to you why looking at aliasing variables separatelly hurts programmer's ability to develop reasoning about a program's behavior.
+I hope it is clear to you why looking at aliasing variables separately hurts programmer's ability to develop reasoning about a program's behavior.
 If you have ever delved into topology, you might recognize that neighborhoods of aliased variables could be expressed with some topology.
 
 Assuming there's a continuous map \\(m\\) from a collection of aliasing variables \\(V\\) to a powerset of the address space \\(2^A\\),
@@ -179,6 +178,6 @@ In such case it is more useful instead of a powerset \\(2^A\\), i.e. map to bool
 to use a map to the natural numbers \\(\mathbb{N}^A\\), which would more closely resemble the hierarchy of borrows.
 
 In the first half of the 20th century mathematicians were investigating bounds of the classical logic.
-As one of significant results of this work Gerhard Gentzen prooved the cut-elimination theorem, which relates to the consistency of logic.
+As one of significant results of this work Gerhard Gentzen proved the cut-elimination theorem, which relates to the consistency of logic.
 Proof's essential part is reasoning about logical connectives and their introduction and elimination.
 This thinking will suit our purposes for proving that some types' properties are closed under interactions with them.
