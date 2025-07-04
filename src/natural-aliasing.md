@@ -152,7 +152,7 @@ fn assert_aliased_mut(a: &mut S) {
 // what if we swap `a` and `b`?
 // now notice the antisymmetry
 fn assert_aliased_mut_bad(b: &mut S) {
-  let b = &mut *a; // reborrow
+  let a = &mut *b; // reborrow
   a.c = 13;
   b.c = 42; // compiler error!
   assert_eq!(a.c, 42);
@@ -178,9 +178,14 @@ This is the kind of aliasing functional programming languages use, where every v
 
 So what about a `Box` we would only read from?
 Would that be the same as for static immutable references?
-Obviously no, ...
+Obviously no.
+There lies a difference between low level languages (Assembly) and high level languages (Pascal, C, C++).
+Programs in Assembly have conventionally utilized very primitive forms of memory management like program stack, static memory and primitive heap of blocks of memory.
 
-<!-- TODO: Forget allows leaks -->
+I would argue that adapting to allocation-like aliasing was much more important for the evolution of programming languages,
+rather than adding metaprogramming features like macros, templates, generic functions and types, which very often deemed to be a desirable part of post-adoption language development.
+
+<!-- TODO: !Forget still allows leaks -->
 
 ## Justification
 
