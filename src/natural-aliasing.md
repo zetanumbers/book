@@ -20,6 +20,8 @@ In this text I'll touch upon several aspects of our type system:
 - Self-referencial types
 - Etc.
 
+To put it simply: this text is all about abstraction of memory aliasing.
+
 ## Introduction
 
 Let's first focus on the power of `Cell`.
@@ -189,7 +191,7 @@ In order to guarantee absence of memory leaks, compiler should be aware of this 
 This entails a type of API used by aforementioned memory allocators and arenas, maybe with some portion of runtime bookkeeping via [custom `Box` type] with lifetime.
 
 This is where hypothetical [`Forget`] trait comes to rescue.
-While it was satisfying to realize that `Forget` was tightly involved with lifetimes, its lack of connection to memory leaking **was** uncanny.
+While it was satisfying to realize that `Forget` was tightly involved with lifetimes, its lack of connection to memory leaking was uncanny.
 But now there's an answer: it comes from the allocator interface design.
 If allocation wasn't a free function, but designed as explained above, `!Forget` would have prevented those leaks.
 Noticeably, if you consider the rule of aliasing information of a type is being closed under its public interface,
@@ -206,12 +208,73 @@ possibly leaving a single runtime allocator on the entire physical memory.
 [`std::mem::forget`]: https://doc.rust-lang.org/1.88.0/std/mem/fn.forget.html
 [custom `Box` type]: https://docs.rs/bumpalo/3.19.0/bumpalo/boxed/struct.Box.html
 
-### Ownership and `Copy`
+### `Copy`
+
+Another funny thing to consider is absense `Copy` impl on type as being closed under its API.
+That wouldn't make much sense for actual pointers, until we would consider pointers as indices.
+Global memory could be thought of as a singleton byte array we index using load and store instructions.
+And in reverse, if we would ever consider indices to be pointers with **multiple** memories,
+it allows to copy the whole memory region, leaving stored these pseudo-pointers to be valid.
+But alas I find this thinking a bit unclear for implementation yet.
+
+[`RefOnce`]: https://docs.rs/scope-lock/0.3.1/scope_lock/struct.RefOnce.html
+
+### Ownership and self-referencial types
 
 What is ownership really?
-Coming from above section, I hope you consider an argument that it is about taking something and giving it back.
+Coming from above section, I hope you consider an argument that it is about giving/taking something and taking/giving it back.
+**In order to give something you have to take it first, and so in order to give something back, you need to take back what you gave.**
+First statement is about composition of constructors, how constructor of a structure utilizes its field's constructor.
+But the second one is more interesting, as it stands for composition of destructors.
+Rust automates destructor nesting largely due to implicit destruction of variables, although there is probably a fitting alternative.
+No matter, as we still can make sense of it in a few new ways.
 
-### Reference cycles
+One way is to reexamine, so called, self-referencial types.
+Take the infamous doubly-linked list for example.
+A list as a whole contains a collection of allocated on a heap nodes with value field, next and previous nullable pointers to respective nodes.
+There's a consistent way of deallocating all of these nodes.
+For this sequence of nodes we can recursivelly deallocate its tail, and when we get the empty next node we can start deallocating nodes themselves.
+It's just as if it was singly-linked list without the previous node pointer, which forms a tree of nodes.
+Usually deallocation of a doubly-linked list is handled with a loop instead,
+but that would be the same as if we took tail out of the head node and had the [tail call optimization].
+
+To some extent this thinking of converting types with reference cycles into a tree of references is unavoidable, because of our conceptualization of ownership.
+At least this allows to refine our thinking, to **compose destructors and think about them separatelly**.
+
+Returning back to doubly linked list,
+my suggestion for trying to came up with safe syntax for self-referencial types in this case would be to regard list nodes in two different modes:
+as a singly-linked list node, with next pointer resembling a `Box`,
+and as a doubly-linked list node with next and previous pointers as arbitrary aliasing mutable borrows.
+Top-level, you would consider list of nodes in second mode by creating a `&Cell` borrow of list's head in signly-linked mode.
+This is kinda what [`GhostCell`] does already.
+Also this sits well with my intuition about async blocks with references to other local variables, which is yet to be put on paper.
+
+[tail call optimization]: https://en.wikipedia.org/wiki/Tail_call
+
+### [`Move`] and runtime ownership tracking
+
+I guess this is an appropriate place to mention, that the program stack is also an allocator.
+Many unconfortable consequences stand from this nuance, like restricing values from moving between scopes when borrowed.
+But it seems possible to somewhat alleviate this using a primitive like [`RefOnce`] or `&own T` which I've found a use in one of my libraries.
+This makes me think that, if stack frame allocation had a syntax with lifetimes,
+then inability to move a type would have been expressed as inablity to place a type into something with a bigger lifetime.
+Otherwise this may lead it to being able to witness that type in outlived/invalid state, which `RefOnce` avoids by borrowing only memory for that type to occupy.
+
+And again, back to `Forget`.
+One of this trait's flaws would have been unclear semantics about what type would require of a type to be forgettable.
+For example, `Rc` can be placed into itself, introducing a reference cycle.
+To handle this it is required to restrict `Rc<'a, T>` with aforementioned aliasing lifetime from being put into itself somehow using lifetimes to track down such case.
+But it becomes obvious if we remember that `Rc` shifts responsibility of tracking ownership to runtime,
+which usually isn't aware of any syntactic scopes we keep in mind in order to think about ownership.
+In order to understand how `Rc`s are tracking memory allocation, appropriatelly you would need to keep in mind all of them.
+More appropriately you would reason about `Rc` as aliasing mutable borrows to allocated memory.
+
+Precisely upon dropping `Rc`s, runtime filters out contexts its allocated memory belongs to, sort of like it's in superposition until then.
+On the second to last drop of `Rc` we would know one definite context where its allocated memory is placed,
+which currently could be either `Rc` itself or some other syntactic context we have hold on.
+This thinking also extends to channels like MPSC, which have exhibit similar unclear/runtime ownership.
+
+[`Move`]: https://blog.yoshuawuyts.com/self-referential-types-2/
 
 ## Justification
 
