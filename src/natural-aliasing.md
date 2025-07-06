@@ -69,7 +69,7 @@ To achieve this Rust restricts mutable borrows to be uncopyable, ensuring a muta
 This rule relates to the second JS case when we were aware of aliasing taking place, as it rules out information about aliasing at least one important way.
 But what if it was more than one way?
 
-### Simple aliasing
+## Simple aliasing
 
 Consider adding a marker lifetime to the `Cell<'a, T>` type, to establish aliasing at the type level.
 Although I am simplifying, now it is possible to express aliasing requirements like:
@@ -91,7 +91,7 @@ Instead of picking memory regions at random, programmers rely on memory allocato
 
 [`GhostCell`]: https://plv.mpi-sws.org/rustbelt/ghostcell/
 
-### Better `Send`
+## Better `Send`
 
 This comes with a cool consequence of alternative definition of thread-safe/unsafe types.
 It would be safe to send a type across the thread boundary only if it's aliased memory region isn't aliased anywhere else.
@@ -126,7 +126,7 @@ or even introducing another type of aliasing lifetime.
 [stackful]: https://docs.rs/corosensei/0.2.2/corosensei/index.html
 [**evident cornerstone**]: https://blaz.is/blog/post/future-send-was-unavoidable/
 
-### Compound aliasing and borrows
+## Compound aliasing and borrows
 
 On that note, this analogously explains why regular lifetimes inside of an async block is "squashed" to `'static` from the outside perspective.
 Such lifetimes simply aren't reflected in the future's type boundary.
@@ -167,7 +167,7 @@ As you can see, from `a`'s perspective `b` aliases it, while from `b`'s point of
 At this moment it is as reasonable to look at `b` alone and to look at both `a` and `b`, while considering only `a` won't tell you much about program's behavior.
 In this sense `a`'s aliasing info is included in `b`'s aliasing info.
 
-### Immutable borrows
+## Immutable borrows
 
 Immutable borrows allows us to worry less about aliasing.
 Rather, restricting mutability of a reference allows us to disregard any aliasing information on that borrow.
@@ -175,7 +175,7 @@ That is, aliasing information on an immutable borrow is quite trivial, limited t
 Even more trivial case would be of a `static SOME_REFERENCE: &'static T = &T {}`, where static immutable references are ideally what a programmer would like to see.
 This is the kind of aliasing functional programming languages use, where every variable should be interpreted "at face value".
 
-### Allocations and `Forget`
+## Allocations and `Forget`
 
 So what about a `Box` we would only read from?
 Would that be the same as for static immutable references?
@@ -208,7 +208,7 @@ possibly leaving a single runtime allocator on the entire physical memory.
 [`std::mem::forget`]: https://doc.rust-lang.org/1.88.0/std/mem/fn.forget.html
 [custom `Box` type]: https://docs.rs/bumpalo/3.19.0/bumpalo/boxed/struct.Box.html
 
-### `Copy`
+## `Copy`
 
 Another funny thing to consider is absense `Copy` impl on type as being closed under its API.
 That wouldn't make much sense for actual pointers, until we would consider pointers as indices.
@@ -219,7 +219,7 @@ But alas I find this thinking a bit unclear for implementation yet.
 
 [`RefOnce`]: https://docs.rs/scope-lock/0.3.1/scope_lock/struct.RefOnce.html
 
-### Ownership and self-referencial types
+## Ownership and self-referencial types
 
 What is ownership really?
 Coming from above section, I hope you consider an argument that it is about giving/taking something and taking/giving it back.
@@ -251,7 +251,7 @@ Also this sits well with my intuition about async blocks with references to othe
 
 [tail call optimization]: https://en.wikipedia.org/wiki/Tail_call
 
-### [`Move`] and runtime ownership tracking
+## [`Move`] and runtime ownership tracking
 
 I guess this is an appropriate place to mention, that the program stack is also an allocator.
 Many unconfortable consequences stand from this nuance, like restricing values from moving between scopes when borrowed.
@@ -276,9 +276,7 @@ This thinking also extends to channels like MPSC, which have exhibit similar unc
 
 [`Move`]: https://blog.yoshuawuyts.com/self-referential-types-2/
 
-## Justification
-
-### Aliasing topology
+## Aliasing topology
 
 I hope it is clear to you why looking at aliasing variables separately hurts programmer's ability to develop reasoning about a program's behavior.
 To be more precise, you have to know what happens to different aliases to construct a sound program.
@@ -299,7 +297,7 @@ In other words, assuming \\(\mathbb{N}\\) is a topological space, with, for ever
 there's a smallest fitting topology, set of open subsets, \\(\tau\\) with open sets defined from preimages of continuous map \\(m\\).
 For any set of aliasing variables \\(V\\) we will call this \\(\tau_V\\) an *aliasing topology*.
 
-### Connectives
+## Connectives
 
 In the first half of the 20th century mathematicians were investigating bounds of the classical logic.
 As one of significant results of this work Gerhard Gentzen proved the cut-elimination theorem, which relates to the consistency of logic.
