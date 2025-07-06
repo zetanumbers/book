@@ -6,6 +6,7 @@ Yoshua
 antisymmetry
 arvensis
 bidi
+bumpalo
 combinators
 compoundness
 deallocated
@@ -22,6 +23,7 @@ powerset
 preimages
 reborrow
 reborrowing
+referencial
 repr
 rustc
 rustdoc

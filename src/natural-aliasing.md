@@ -17,9 +17,8 @@ In this text I'll touch upon several aspects of our type system:
 - Why and how `Send` futures may contain `!Send` types like `Rc`;
 - Why and how hypothesized [`Forget`] marker trait does and does not prevent memory leaks and use-after-free bugs;
 - The general role of less or more so copyable types in Rust's type system;
+- Self-referencial types
 - Etc.
-
-[`Forget`]: ./myosotis.md
 
 ## Introduction
 
@@ -174,18 +173,45 @@ That is, aliasing information on an immutable borrow is quite trivial, limited t
 Even more trivial case would be of a `static SOME_REFERENCE: &'static T = &T {}`, where static immutable references are ideally what a programmer would like to see.
 This is the kind of aliasing functional programming languages use, where every variable should be interpreted "at face value".
 
-### Allocations
+### Allocations and `Forget`
 
 So what about a `Box` we would only read from?
 Would that be the same as for static immutable references?
 Obviously no.
-There lies a difference between low level languages (Assembly) and high level languages (Pascal, C, C++).
-Programs in Assembly have conventionally utilized very primitive forms of memory management like program stack, static memory and primitive heap of blocks of memory.
+If you've got a hang of Rust, you might draw a comparison between mutable borrows and memory allocators.
+In a sense, memory allocation is a borrow of the memory allocator, or rather, a part of its managed memory.
+That's why it's sometimes more compelling to implement custom memory allocators using mutable borrows instead of some kind of a `Box` type, like [bumpalo].
 
-I would argue that adapting to allocation-like aliasing was much more important for the evolution of programming languages,
-rather than adding metaprogramming features like macros, templates, generic functions and types, which very often deemed to be a desirable part of post-adoption language development.
+The only difference between a `Box` and a mutable borrow is in the party responsible for bookkeeping, either the compiler or the runtime.
+However, if something isn't handled by the compiler, it becomes syntactically invisible to us, which then explains why memory leaks are considered safe.
+Part of it, the function [`std::mem::forget`] allows anything to escape syntax and render its runtime effects invisible.
+In order to guarantee absence of memory leaks, compiler should be aware of this kind of aliasing information too, just like for `&mut T`.
+This entails a type of API used by aforementioned memory allocators and arenas, maybe with some portion of runtime bookkeeping via [custom `Box` type] with lifetime.
 
-<!-- TODO: !Forget still allows leaks -->
+This is where hypothetical [`Forget`] trait comes to rescue.
+While it was satisfying to realize that `Forget` was tightly involved with lifetimes, its lack of connection to memory leaking **was** uncanny.
+But now there's an answer: it comes from the allocator interface design.
+If allocation wasn't a free function, but designed as explained above, `!Forget` would have prevented those leaks.
+Noticeably, if you consider the rule of aliasing information of a type is being closed under its public interface,
+it would be ok to forget allocations, if we also forget about the allocator itself.
+
+Although that warrants a question "wouldn't allocator need to allocate memory from somewhere in order to hold it?"
+The answer is yes, allocator is by definition the way of tracking unaliased memory,
+thus for every allocator we should establish there's no intersections between allocators, for which we need an allocator.
+This leaves us to conclude that there has to be a chain of runtime and compile-time allocators, with the primordial allocator at the beginning.
+I'll argue this primordial allocator is your consistent decision on division of memory between allocators,
+possibly leaving a single runtime allocator on the entire physical memory.
+
+[bumpalo]: https://docs.rs/bumpalo/3.19.0/bumpalo/struct.Bump.html#method.alloc
+[`std::mem::forget`]: https://doc.rust-lang.org/1.88.0/std/mem/fn.forget.html
+[custom `Box` type]: https://docs.rs/bumpalo/3.19.0/bumpalo/boxed/struct.Box.html
+
+### Ownership and `Copy`
+
+What is ownership really?
+Coming from above section, I hope you consider an argument that it is about taking something and giving it back.
+
+### Reference cycles
 
 ## Justification
 
@@ -245,3 +271,4 @@ You may argue that `dyn Trait` are sum types with varying layout, and thus alias
 I believe the procedure for establishing a stable layout, like for our regular enums, should be clear to you.
 
 [discriminant]: https://doc.rust-lang.org/reference/items/enumerations.html#discriminants
+[`Forget`]: ./myosotis.md
