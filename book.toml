@@ -3,12 +3,13 @@ authors = ["Daria Sukhonina"]
 language = "en"
 multilingual = false
 src = "src"
-title = "zetanumbers book"
+title = "Daria Sukhonina's scribbles"
 
 [output.html]
 site-url = "/book/"
 git-repository-url = "https://github.com/zetanumbers/book/tree/main"
 edit-url-template = "https://github.com/zetanumbers/book/edit/main/{path}"
+mathjax-support = true
 
 [rust]
 edition = "2021"

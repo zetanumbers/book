@@ -3,5 +3,6 @@ pkgs.mkShellNoCC {
   packages = [
     pkgs.mdbook
     pkgs.mdbook-footnote
+    pkgs.nodePackages.cspell
   ];
 }
