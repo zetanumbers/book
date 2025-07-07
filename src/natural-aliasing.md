@@ -1,5 +1,7 @@
 # Natural aliasing model
 
+*Draft 2025-07-07*
+
 <!--toc:start-->
 - [Natural aliasing model](#natural-aliasing-model)
   - [Motivation](#motivation)
@@ -14,7 +16,7 @@
   - [`Move` and runtime ownership tracking](#move-and-runtime-ownership-tracking)
   - [Aliasing topology](#aliasing-topology)
   - [Justification for the fundamental aliasing rule](#justification-for-the-fundamental-aliasing-rule)
-  - [Conclusion](#conclusion)
+  - [Afterword](#afterword)
 <!--toc:end-->
 
 ## Motivation
@@ -352,7 +354,7 @@ we could use memory to store and load values in a deterministic and consistent w
 
 [β-reduction]: https://en.wikipedia.org/wiki/Lambda_calculus#%CE%B2-reduction_2
 
-## Conclusion
+## Afterword
 
 I would appreciate and credit your contributions if you share me useful improvements to this text.
 I hope all this abstract nonsense would help guide rust-lang's and other languages future,
