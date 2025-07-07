@@ -1,4 +1,4 @@
-Gentzen
+Grothendieck
 Neumann
 Tauno
 Wuyts
