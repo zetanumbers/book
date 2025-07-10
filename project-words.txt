@@ -33,6 +33,7 @@ substracting
 subtyping
 thrd
 tigerbeetle
+unalias
 unaliased
 uncopyable
 unergonomic

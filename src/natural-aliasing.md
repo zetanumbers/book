@@ -1,6 +1,6 @@
 # Natural aliasing model
 
-*Draft 2025-07-07*
+*Draft 2025-07-10*
 
 <!--toc:start-->
 - [Natural aliasing model](#natural-aliasing-model)
@@ -125,8 +125,8 @@ It would be safe to send a type across the thread boundary only if it's aliased 
 To avoid to talk about plain borrows, consider `Rc<'a, T>` implemented using new `Cell<'a, usize>` as a reference counter.
 It is safe to send `a: Rc<'a, T>` to another thread if there isn't any other `b: Rc<'a, T>` left on the old thread.
 But more than that, if there is another `b: Rc<'a, T>`, we still could send both of them `(a, b)` across threads.
-I have found type annotation for [higher-ranked lifetimes] `(a, b): for<'a> (Rc<'a, T>, Rc<'a, T>)`, although formally ambiguous, to be quite fitting.
-Now you can see yourself why `&mut T` would be just a non-copyable version of `for<'a> &Cell<'a, T>`.
+I have found type annotation similar to [higher-ranked lifetimes] `(a, b): unalias<'a> (Rc<'a, T>, Rc<'a, T>)`, to be quite fitting.
+Now you can see yourself why `&mut T` would be just a `unalias<'a> &Cell<'a, T>`, which means this type has to be uncopyable before instantiating `'a` with a free lifetime.
 
 From this we could even restore the original `Send` oriented design.
 The `!Send` implementation on a type essentially tells that utilized memory region could be (non-atomically, without synchronization) aliased from the *current thread*.
@@ -138,10 +138,27 @@ The solution to that problem would be to abstract assumption into a type, let's 
 But you shouldn't be able to prove that `'a` aliasing lifetime does not occur somewhere else, so you won't ever be able to send it across threads.
 Any function requiring thread-unsafe access to thread-locals would have to get this type through its arguments.
 This then would be reflected in the function signature, which would inform whether function body is sendable across threads or not.
+Simplifying, this is how it would look:
+
+```rust
+fn main(key: ThreadLocalKey<'_>) {}
+
+fn thread_spawn<F, R>(f: F) -> R
+where
+  F: for<'a> FnOnce(ThreadLocalKey<'a>) -> R
+{}
+
+impl LocalKey<T> {
+  fn with<F, R>(&'static self, key: &ThreadLocalKey<'_>, f: F) -> R
+  where
+    F: FnOnce(&T) -> R,
+  {}
+}
+```
 
 This way you could imagine a `Future` gets `ThreadLocalKey<'a>` through its `poll` method,
 which explains why storing any thread-unsafe type `T: 'a` should make the compiler assume future is thread-unsafe as a whole.
-Unless that future's internal structure contains types only with `for<'a>` bounded aliasing lifetimes!
+Unless that future's internal structure contains types only with `unalias<'a>` bounded aliasing lifetimes!
 
 **You should notice that now the thread-safe property of a type could be defined solely from the *type's boundary*, i.e. its safe public interface.**
 I will name this rule the *fundamental aliasing rule*, although pretentious, in the context of our theory it is worth its name.
